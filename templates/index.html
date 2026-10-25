@@ -6,7 +6,7 @@
     <title>Pulse — Neo4j Emergency Donor Engine</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -18,55 +18,55 @@
         }
     </style>
 </head>
-<body class="bg-[#0b0f12] text-zinc-300 min-h-screen selection:bg-rose-900/50 selection:text-white">
+<body class="bg-[#0b0f12] text-zinc-200 min-h-screen selection:bg-rose-900/50 selection:text-white">
 
-    <div class="max-w-6xl mx-auto px-6 py-8 space-y-8">
+    <div class="max-w-7xl mx-auto px-8 py-10 space-y-10">
 
         <!-- Top Minimal Navbar -->
-        <header class="flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-zinc-800/60">
+        <header class="flex flex-wrap items-center justify-between gap-6 pb-7 border-b border-zinc-800/70">
             <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-rose-500 font-bold text-lg shadow-inner">
+                <div class="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-rose-500 font-bold text-2xl shadow-inner">
                     ⟡
                 </div>
                 <div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xl font-bold tracking-tight text-zinc-100">Pulse</span>
-                        <span class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900/60 text-zinc-400 mono">Neo4j Bolt</span>
+                    <div class="flex items-center gap-3.5">
+                        <span class="text-2xl font-bold tracking-tight text-white">Pulse</span>
+                        <span class="text-xs uppercase tracking-widest px-2.5 py-1 rounded border border-zinc-800 bg-zinc-900/80 text-zinc-400 mono">Neo4j Bolt</span>
                     </div>
-                    <p class="text-xs text-zinc-400">Campus Blood Compatibility & Graph Traversal Engine[cite: 2]</p>
+                    <p class="text-sm text-zinc-400 mt-0.5">Campus Blood Compatibility & Graph Traversal Engine</p>
                 </div>
             </div>
 
             <!-- Telemetry & Action -->
-            <div class="flex items-center gap-4 text-xs">
-                <div class="flex items-center gap-4 px-3.5 py-1.5 rounded-full bg-zinc-900/70 border border-zinc-800 text-zinc-400 mono">
-                    <span class="inline-flex items-center gap-1.5 text-zinc-300">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Active
+            <div class="flex items-center gap-4 text-sm">
+                <div class="flex items-center gap-4 px-4 py-2.5 rounded-full bg-zinc-900/70 border border-zinc-800 text-zinc-400 mono">
+                    <span class="inline-flex items-center gap-2 text-zinc-200">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Active
                     </span>
-                    <span class="text-zinc-500">/</span>
-                    <span>Nodes: <strong id="nodeCount" class="text-zinc-200">0</strong></span>
-                    <span>Edges: <strong id="edgeCount" class="text-zinc-200">0</strong></span>
+                    <span class="text-zinc-600">/</span>
+                    <span>Nodes: <strong id="nodeCount" class="text-white">0</strong></span>
+                    <span>Edges: <strong id="edgeCount" class="text-white">0</strong></span>
                 </div>
 
-                <button onclick="initGraph()" class="px-4 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-700/60 text-xs font-medium transition active:scale-95 flex items-center gap-1.5">
+                <button onclick="initGraph()" class="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-100 hover:text-white border border-zinc-700/70 text-sm font-medium transition active:scale-95 flex items-center gap-2">
                     <span>⚡</span> <span>Seed Rules</span>
                 </button>
             </div>
         </header>
 
-        <!-- Search Bar Section (No Bulky Box) -->
-        <section class="space-y-4">
-            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <!-- Search Bar Section -->
+        <section class="space-y-5">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-300 mono">Emergency Search</h2>
-                    <p class="text-sm text-zinc-400 mt-1">Select patient requirement to traverse biological donor pathways[cite: 2].</p>
+                    <h2 class="text-sm font-semibold uppercase tracking-widest text-zinc-300 mono">Emergency Search</h2>
+                    <p class="text-base text-zinc-400 mt-1">Select patient requirement to traverse biological donor pathways.</p>
                 </div>
 
                 <!-- Sleek Integrated Control Bar -->
-                <div class="inline-flex items-center bg-zinc-900/80 p-1.5 rounded-xl border border-zinc-800 shadow-sm gap-2">
-                    <div class="flex items-center gap-2 pl-3">
-                        <span class="text-xs text-zinc-400 mono">Need:</span>
-                        <select id="searchBg" class="bg-transparent text-sm font-semibold text-rose-400 focus:outline-none cursor-pointer mono py-1">
+                <div class="inline-flex items-center bg-zinc-900/80 p-2 rounded-xl border border-zinc-800 shadow-sm gap-3">
+                    <div class="flex items-center gap-2.5 pl-3">
+                        <span class="text-sm text-zinc-400 mono">Need:</span>
+                        <select id="searchBg" class="bg-transparent text-base font-semibold text-rose-400 focus:outline-none cursor-pointer mono py-1">
                             <option value="A+" class="bg-zinc-900 text-zinc-200" selected>A+</option>
                             <option value="O-" class="bg-zinc-900 text-zinc-200">O-</option>
                             <option value="O+" class="bg-zinc-900 text-zinc-200">O+</option>
@@ -78,11 +78,11 @@
                         </select>
                     </div>
 
-                    <span class="text-zinc-500">|</span>
+                    <span class="text-zinc-600">|</span>
 
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-zinc-400 mono">Area:</span>
-                        <select id="searchArea" class="bg-transparent text-sm text-zinc-200 focus:outline-none cursor-pointer py-1">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-sm text-zinc-400 mono">Area:</span>
+                        <select id="searchArea" class="bg-transparent text-base text-zinc-100 focus:outline-none cursor-pointer py-1">
                             <option value="Kothrud" class="bg-zinc-900 text-zinc-200" selected>Kothrud</option>
                             <option value="Deccan" class="bg-zinc-900 text-zinc-200">Deccan</option>
                             <option value="Karve Nagar" class="bg-zinc-900 text-zinc-200">Karve Nagar</option>
@@ -90,63 +90,63 @@
                         </select>
                     </div>
 
-                    <button onclick="searchDonors()" class="px-4 py-2 bg-rose-600/90 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg transition active:scale-95 shadow">
+                    <button onclick="searchDonors()" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold rounded-lg transition active:scale-95 shadow">
                         Traverse
                     </button>
                 </div>
             </div>
 
-            <!-- Minimal Linear Traversal Path Preview -->
-            <div class="flex items-center gap-2 text-xs text-zinc-400 mono overflow-x-auto py-1">
-                <span class="text-zinc-400">Path:</span>
-                <span class="text-zinc-300">(:CampusArea)</span>
+            <!-- Linear Traversal Path Preview -->
+            <div class="flex items-center gap-2.5 text-sm text-zinc-400 mono overflow-x-auto py-2">
+                <span class="text-zinc-500">Path:</span>
+                <span class="text-zinc-200">(:CampusArea)</span>
                 <span class="text-zinc-500">←[:LIVES_IN]—</span>
-                <span class="text-zinc-300">(:Donor)</span>
+                <span class="text-zinc-200">(:Donor)</span>
                 <span class="text-zinc-500">—[:HAS_BG]→</span>
-                <span class="text-zinc-300">(:BloodGroup)</span>
+                <span class="text-zinc-200">(:BloodGroup)</span>
                 <span class="text-zinc-500">—[:CAN_DONATE_TO]→</span>
                 <span id="targetNodeBadge" class="text-rose-400 font-semibold underline decoration-rose-500/40">(:BloodGroup {type: "A+"})</span>
             </div>
         </section>
 
-        <!-- Results Section (Clean Editorial List - No Blue Boxes) -->
-        <main class="space-y-3">
-            <div class="flex items-center justify-between text-xs text-zinc-400 mono uppercase tracking-wider pb-2 border-b border-zinc-800/40">
-                <span>Compatible Donors[cite: 2]</span>
+        <!-- Results Section -->
+        <main class="space-y-4">
+            <div class="flex items-center justify-between text-sm text-zinc-400 mono uppercase tracking-wider pb-3 border-b border-zinc-800/50">
+                <span>Compatible Donors</span>
                 <span id="resultsCount">0 Found</span>
             </div>
 
-            <div id="resultsContainer" class="divide-y divide-zinc-800/40 border border-zinc-800/60 rounded-xl bg-zinc-900/30 overflow-hidden">
+            <div id="resultsContainer" class="divide-y divide-zinc-800/50 border border-zinc-800/70 rounded-2xl bg-zinc-900/30 overflow-hidden">
                 <!-- Injected via JavaScript -->
             </div>
         </main>
 
         <!-- Bottom Drawer: Register New Donor Node -->
-        <footer class="pt-6 border-t border-zinc-800/60">
-            <details class="group cursor-pointer">
-                <summary class="flex items-center justify-between text-xs text-zinc-400 hover:text-zinc-200 transition font-medium select-none">
-                    <span class="flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full bg-zinc-600 group-open:bg-rose-400"></span>
-                        Register New Student Donor Node[cite: 2]
+        <footer class="pt-6 border-t border-zinc-800/70">
+            <details open class="group cursor-pointer">
+                <summary class="flex items-center justify-between text-sm text-zinc-300 hover:text-white transition font-medium select-none">
+                    <span class="flex items-center gap-2.5">
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                        Register New Student Donor Node
                     </span>
-                    <span class="mono text-[11px] text-zinc-400 group-open:rotate-180 transition-transform">↓</span>
+                    <span class="mono text-xs text-zinc-400 group-open:rotate-180 transition-transform">↓</span>
                 </summary>
 
-                <div class="pt-5 grid grid-cols-1 md:grid-cols-5 gap-3">
-                    <input id="regName" type="text" placeholder="Full Name (e.g. Satya Nayak)" class="bg-zinc-900/60 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-700">
-                    <input id="regPhone" type="text" placeholder="Phone Number" class="bg-zinc-900/60 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-700">
-                    <select id="regBg" class="bg-zinc-900/60 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 focus:outline-none mono">
+                <div class="pt-5 grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <input id="regName" type="text" placeholder="Full Name (e.g. Keya Joshi)" class="bg-zinc-900/70 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600">
+                    <input id="regPhone" type="text" placeholder="Phone Number" class="bg-zinc-900/70 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600">
+                    <select id="regBg" class="bg-zinc-900/70 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none mono">
                         <option>O-</option><option>O+</option><option>A-</option><option selected>A+</option>
                         <option>B-</option><option>B+</option><option>AB-</option><option>AB+</option>
                     </select>
-                    <select id="regArea" class="bg-zinc-900/60 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-300 focus:outline-none">
+                    <select id="regArea" class="bg-zinc-900/70 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none">
                         <option>Kothrud</option><option>Deccan</option><option>Karve Nagar</option><option>Viman Nagar</option>
                     </select>
-                    <button onclick="registerDonor()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded-lg px-4 py-2 transition active:scale-95">
+                    <button onclick="registerDonor()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-sm font-medium rounded-xl px-5 py-3 transition active:scale-95">
                         Add to Graph
                     </button>
                 </div>
-                <p id="regStatus" class="text-xs text-emerald-400 mt-2 font-mono hidden"></p>
+                <p id="regStatus" class="text-sm text-emerald-400 mt-3 mono hidden"></p>
             </details>
         </footer>
 
@@ -210,8 +210,8 @@
             if (!data.matches || data.matches.length === 0) {
                 countLabel.innerText = "0 Found";
                 container.innerHTML = `
-                    <div class="py-12 text-center text-xs text-zinc-600 mono">
-                        No compatible donors logged in ${area} for blood group ${bg}[cite: 2].
+                    <div class="py-14 text-center text-sm text-zinc-500 mono">
+                        No compatible donors logged in ${area} for blood group ${bg}. Click "⚡ Seed Rules" above to initialize data.
                     </div>`;
                 return;
             }
@@ -221,27 +221,27 @@
             container.innerHTML = data.matches.map(d => {
                 const isExact = d.match_type === "EXACT";
                 const badge = isExact
-                    ? `<span class="text-[10px] text-emerald-400 mono">Direct Exact</span>`
-                    : `<span class="text-[10px] text-zinc-400 mono">Compatible (${d.donor_blood_group} → ${bg})</span>`;
+                    ? `<span class="text-xs px-2.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/50 text-emerald-400 mono">Direct Exact</span>`
+                    : `<span class="text-xs px-2.5 py-0.5 rounded bg-zinc-800/80 text-zinc-300 mono">Compatible (${d.donor_blood_group} → ${bg})</span>`;
 
                 return `
-                <div class="flex items-center justify-between p-4 hover:bg-zinc-900/50 transition group">
+                <div class="flex items-center justify-between p-5 hover:bg-zinc-900/60 transition group">
                     <div class="flex items-center gap-4">
-                        <div class="w-9 h-9 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-sm text-zinc-200 mono">
+                        <div class="w-11 h-11 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-base text-rose-400 mono">
                             ${d.donor_blood_group}
                         </div>
                         <div>
-                            <div class="flex items-center gap-2">
-                                <h4 class="text-sm font-medium text-zinc-100 group-hover:text-white transition">${d.name}</h4>
+                            <div class="flex items-center gap-3">
+                                <h4 class="text-base font-semibold text-zinc-100 group-hover:text-white transition">${d.name}</h4>
                                 ${badge}
                             </div>
-                            <p class="text-xs text-zinc-400 mono mt-0.5">Location: ${d.area}[cite: 2]</p>
+                            <p class="text-sm text-zinc-400 mono mt-0.5">Location: ${d.area}</p>
                         </div>
                     </div>
 
                     <div class="text-right">
-                        <a href="tel:${d.phone}" class="text-xs text-zinc-400 hover:text-zinc-200 mono transition">
-                            ${d.phone}
+                        <a href="tel:${d.phone}" class="text-sm text-zinc-300 hover:text-white mono transition">
+                            📞 ${d.phone}
                         </a>
                     </div>
                 </div>`;
