@@ -3,253 +3,341 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pulse — Neo4j Emergency Donor Engine</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Pulse — Polyglot Graph & Document Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            letter-spacing: -0.015em;
+            background-color: #09090b;
+            color: #fafafa;
         }
-        .mono {
-            font-family: 'JetBrains Mono', monospace;
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2371717a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1rem;
         }
     </style>
 </head>
-<body class="bg-[#0b0f12] text-zinc-200 min-h-screen selection:bg-rose-900/50 selection:text-white">
+<body class="min-h-screen antialiased selection:bg-rose-500 selection:text-white">
 
-    <div class="max-w-7xl mx-auto px-8 py-10 space-y-10">
-
-        <!-- Top Minimal Navbar -->
-        <header class="flex flex-wrap items-center justify-between gap-6 pb-7 border-b border-zinc-800/70">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-rose-500 font-bold text-2xl shadow-inner">
-                    ⟡
+    <!-- Minimal Top Bar -->
+    <header class="border-b border-zinc-800/80">
+        <div class="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-3.5">
+                <div class="w-9 h-9 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 font-bold">
+                    ✦
                 </div>
                 <div>
-                    <div class="flex items-center gap-3.5">
-                        <span class="text-2xl font-bold tracking-tight text-white">Pulse</span>
-                        <span class="text-xs uppercase tracking-widest px-2.5 py-1 rounded border border-zinc-800 bg-zinc-900/80 text-zinc-400 mono">Neo4j Bolt</span>
+                    <div class="flex items-center gap-2.5">
+                        <span class="font-semibold tracking-tight text-lg text-white">Pulse</span>
+                        <span class="text-[11px] mono uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">Neo4j Bolt</span>
+                        <span class="text-[11px] mono uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-800/50">MongoDB Docs</span>
                     </div>
-                    <p class="text-sm text-zinc-400 mt-0.5">Campus Blood Compatibility & Graph Traversal Engine</p>
+                    <p class="text-xs text-zinc-500">Blood Compatibility & Polyglot Persistence Engine</p>
                 </div>
             </div>
 
-            <!-- Telemetry & Action -->
-            <div class="flex items-center gap-4 text-sm">
-                <div class="flex items-center gap-4 px-4 py-2.5 rounded-full bg-zinc-900/70 border border-zinc-800 text-zinc-400 mono">
-                    <span class="inline-flex items-center gap-2 text-zinc-200">
-                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Active
+            <!-- Live Graph & Document Telemetry -->
+            <div class="flex items-center gap-4">
+                <div class="hidden sm:flex items-center gap-3 text-xs mono text-zinc-400 bg-zinc-900/60 border border-zinc-800/80 px-3.5 py-2 rounded-full">
+                    <span class="flex items-center gap-1.5 text-emerald-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Active
                     </span>
-                    <span class="text-zinc-600">/</span>
-                    <span>Nodes: <strong id="nodeCount" class="text-white">0</strong></span>
-                    <span>Edges: <strong id="edgeCount" class="text-white">0</strong></span>
+                    <span class="text-zinc-700">/</span>
+                    <span>Nodes: <strong id="nodeCount" class="text-zinc-200">0</strong></span>
+                    <span>Edges: <strong id="edgeCount" class="text-zinc-200">0</strong></span>
+                    <span class="text-zinc-700">|</span>
+                    <span class="text-emerald-400/90">MongoDocs: <strong id="mongoCount" class="text-emerald-300">0</strong></span>
                 </div>
 
-                <button onclick="initGraph()" class="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-100 hover:text-white border border-zinc-700/70 text-sm font-medium transition active:scale-95 flex items-center gap-2">
-                    <span>⚡</span> <span>Seed Rules</span>
+                <button onclick="initGraph()" class="text-xs font-medium px-3.5 py-2 rounded-full bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition cursor-pointer">
+                    ⚡ Seed Rules
                 </button>
             </div>
-        </header>
+        </div>
+    </header>
 
-        <!-- Search Bar Section -->
-        <section class="space-y-5">
-            <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <!-- Main Container -->
+    <main class="max-w-5xl mx-auto px-6 py-10 space-y-10">
+
+        <!-- 1. Primary Control Bar (Emergency Search) -->
+        <section class="space-y-6">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h2 class="text-sm font-semibold uppercase tracking-widest text-zinc-300 mono">Emergency Search</h2>
-                    <p class="text-base text-zinc-400 mt-1">Select patient requirement to traverse biological donor pathways.</p>
+                    <h1 class="text-xs mono uppercase tracking-widest text-zinc-400">Emergency Search</h1>
+                    <p class="text-sm text-zinc-500 mt-1">Select patient requirement to traverse Neo4j pathways & fetch MongoDB health profiles.</p>
                 </div>
 
-                <!-- Sleek Integrated Control Bar -->
-                <div class="inline-flex items-center bg-zinc-900/80 p-2 rounded-xl border border-zinc-800 shadow-sm gap-3">
-                    <div class="flex items-center gap-2.5 pl-3">
-                        <span class="text-sm text-zinc-400 mono">Need:</span>
-                        <select id="searchBg" class="bg-transparent text-base font-semibold text-rose-400 focus:outline-none cursor-pointer mono py-1">
-                            <option value="A+" class="bg-zinc-900 text-zinc-200" selected>A+</option>
-                            <option value="O-" class="bg-zinc-900 text-zinc-200">O-</option>
-                            <option value="O+" class="bg-zinc-900 text-zinc-200">O+</option>
-                            <option value="A-" class="bg-zinc-900 text-zinc-200">A-</option>
-                            <option value="B-" class="bg-zinc-900 text-zinc-200">B-</option>
-                            <option value="B+" class="bg-zinc-900 text-zinc-200">B+</option>
-                            <option value="AB-" class="bg-zinc-900 text-zinc-200">AB-</option>
-                            <option value="AB+" class="bg-zinc-900 text-zinc-200">AB+</option>
+                <!-- Inline Search Controls -->
+                <div class="flex items-center gap-2 bg-zinc-900/50 rounded-xl border border-zinc-800/80">
+                    <div class="flex items-center gap-2 px-3 py-1.5">
+                        <span class="text-xs text-zinc-500">Need:</span>
+                        <select id="searchBg" onchange="searchDonors(true)" class="bg-transparent text-sm font-semibold text-rose-400 pr-6 focus:outline-none cursor-pointer">
+                            <option value="A+" class="bg-zinc-900 text-white">A+</option>
+                            <option value="A-" class="bg-zinc-900 text-white">A-</option>
+                            <option value="B+" class="bg-zinc-900 text-white">B+</option>
+                            <option value="B-" class="bg-zinc-900 text-white">B-</option>
+                            <option value="O+" class="bg-zinc-900 text-white">O+</option>
+                            <option value="O-" class="bg-zinc-900 text-white">O-</option>
+                            <option value="AB+" class="bg-zinc-900 text-white">AB+</option>
+                            <option value="AB-" class="bg-zinc-900 text-white">AB-</option>
                         </select>
                     </div>
 
-                    <span class="text-zinc-600">|</span>
+                    <div class="h-4 w-[1px] bg-zinc-800"></div>
 
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-sm text-zinc-400 mono">Area:</span>
-                        <select id="searchArea" class="bg-transparent text-base text-zinc-100 focus:outline-none cursor-pointer py-1">
-                            <option value="Kothrud" class="bg-zinc-900 text-zinc-200" selected>Kothrud</option>
-                            <option value="Deccan" class="bg-zinc-900 text-zinc-200">Deccan</option>
-                            <option value="Karve Nagar" class="bg-zinc-900 text-zinc-200">Karve Nagar</option>
-                            <option value="Viman Nagar" class="bg-zinc-900 text-zinc-200">Viman Nagar</option>
+                    <div class="flex items-center gap-2 px-3 py-1.5">
+                        <span class="text-xs text-zinc-500">Area:</span>
+                        <select id="searchArea" onchange="searchDonors(true)" class="bg-transparent text-sm font-medium text-zinc-200 pr-6 focus:outline-none cursor-pointer">
+                            <option value="Kothrud" class="bg-zinc-900 text-white">Kothrud</option>
+                            <option value="Deccan" class="bg-zinc-900 text-white">Deccan</option>
+                            <option value="Karve Nagar" class="bg-zinc-900 text-white">Karve Nagar</option>
+                            <option value="Viman Nagar" class="bg-zinc-900 text-white">Viman Nagar</option>
                         </select>
                     </div>
 
-                    <button onclick="searchDonors()" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold rounded-lg transition active:scale-95 shadow">
+                    <button onclick="searchDonors(true)" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition cursor-pointer">
                         Traverse
                     </button>
                 </div>
             </div>
 
-            <!-- Linear Traversal Path Preview -->
-            <div class="flex items-center gap-2.5 text-sm text-zinc-400 mono overflow-x-auto py-2">
-                <span class="text-zinc-500">Path:</span>
-                <span class="text-zinc-200">(:CampusArea)</span>
-                <span class="text-zinc-500">←[:LIVES_IN]—</span>
-                <span class="text-zinc-200">(:Donor)</span>
-                <span class="text-zinc-500">—[:HAS_BG]→</span>
-                <span class="text-zinc-200">(:BloodGroup)</span>
-                <span class="text-zinc-500">—[:CAN_DONATE_TO]→</span>
-                <span id="targetNodeBadge" class="text-rose-400 font-semibold underline decoration-rose-500/40">(:BloodGroup {type: "A+"})</span>
+            <!-- Subtle Cypher Path Bar -->
+            <div class="px-4 py-2.5 rounded-lg bg-zinc-900/30 border border-zinc-800/50 flex items-center justify-between text-xs mono text-zinc-500 overflow-x-auto">
+                <span>Path: <strong class="text-zinc-300">(:CampusArea)</strong> &lt;-[:LIVES_IN]- <strong class="text-zinc-300">(:Donor)</strong> -[:HAS_BG]-&gt; <strong class="text-zinc-300">(:BloodGroup)</strong> -[:CAN_DONATE_TO]-&gt; <strong id="cypherPreview" class="text-rose-400 underline decoration-rose-500/30 underline-offset-4">(:BloodGroup {type: "A+"})</strong></span>
             </div>
         </section>
 
-        <!-- Results Section -->
-        <main class="space-y-4">
-            <div class="flex items-center justify-between text-sm text-zinc-400 mono uppercase tracking-wider pb-3 border-b border-zinc-800/50">
-                <span>Compatible Donors</span>
-                <span id="resultsCount">0 Found</span>
+        <!-- 2. Donor Results List (Enriched with MongoDB Medical Screening Badges) -->
+        <section class="space-y-3">
+            <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+                <span class="text-xs mono uppercase tracking-wider text-zinc-500">Compatible Donors (Neo4j Graph + MongoDB Medical Profile)</span>
+                <span id="matchCount" class="text-xs mono text-zinc-400">0 found</span>
             </div>
 
-            <div id="resultsContainer" class="divide-y divide-zinc-800/50 border border-zinc-800/70 rounded-2xl bg-zinc-900/30 overflow-hidden">
-                <!-- Injected via JavaScript -->
+            <div id="resultsContainer" class="divide-y divide-zinc-800/50">
+                <!-- Populated dynamically -->
             </div>
-        </main>
+        </section>
 
-        <!-- Bottom Drawer: Register New Donor Node -->
-        <footer class="pt-6 border-t border-zinc-800/70">
-            <details open class="group cursor-pointer">
-                <summary class="flex items-center justify-between text-sm text-zinc-300 hover:text-white transition font-medium select-none">
-                    <span class="flex items-center gap-2.5">
-                        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-                        Register New Student Donor Node
-                    </span>
-                    <span class="mono text-xs text-zinc-400 group-open:rotate-180 transition-transform">↓</span>
-                </summary>
+        <!-- 3. Register New Student Donor Node (Neo4j + MongoDB) -->
+        <section class="pt-6 border-t border-zinc-800/80">
+            <div class="mb-4 flex items-center justify-between">
+                <span class="text-xs font-medium text-zinc-300 flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                    Register New Student Donor (Syncs to Neo4j Graph &amp; MongoDB Document Store)
+                </span>
+                <span class="text-xs text-zinc-600">↑</span>
+            </div>
 
-                <div class="pt-5 grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <input id="regName" type="text" placeholder="Full Name (e.g. Keya Joshi)" class="bg-zinc-900/70 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600">
-                    <input id="regPhone" type="text" placeholder="Phone Number" class="bg-zinc-900/70 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600">
-                    <select id="regBg" class="bg-zinc-900/70 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none mono">
-                        <option>O-</option><option>O+</option><option>A-</option><option selected>A+</option>
-                        <option>B-</option><option>B+</option><option>AB-</option><option>AB+</option>
+            <div class="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
+                <input id="regName" type="text" placeholder="Full Name (e.g. Keya Joshi)" 
+                    class="bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
+                
+                <input id="regPhone" type="text" placeholder="Phone Number" 
+                    class="bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
+
+                <input id="regNote" type="text" placeholder="Medical Screening (e.g. 64kg, Hb 14.2)" 
+                    class="sm:col-span-2 bg-zinc-900/70 border border-emerald-900/50 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-600">
+
+                <select id="regBg" class="bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-zinc-600 cursor-pointer">
+                    <option value="O-">O- (Universal)</option>
+                    <option value="O+">O+</option>
+                    <option value="A-" selected>A-</option>
+                    <option value="A+">A+</option>
+                    <option value="B-">B-</option>
+                    <option value="B+">B+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="AB+">AB+</option>
+                </select>
+
+                <div class="flex gap-2">
+                    <select id="regArea" class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3 py-2.5 text-xs text-white focus:outline-none focus:border-zinc-600 cursor-pointer">
+                        <option value="Kothrud">Kothrud</option>
+                        <option value="Deccan">Deccan</option>
+                        <option value="Karve Nagar">Karve Nagar</option>
+                        <option value="Viman Nagar">Viman Nagar</option>
                     </select>
-                    <select id="regArea" class="bg-zinc-900/70 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none">
-                        <option>Kothrud</option><option>Deccan</option><option>Karve Nagar</option><option>Viman Nagar</option>
-                    </select>
-                    <button onclick="registerDonor()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-sm font-medium rounded-xl px-5 py-3 transition active:scale-95">
-                        Add to Graph
+
+                    <button onclick="registerDonor()" class="shrink-0 bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs px-4 py-2.5 rounded-lg transition cursor-pointer">
+                        Add
                     </button>
                 </div>
-                <p id="regStatus" class="text-sm text-emerald-400 mt-3 mono hidden"></p>
-            </details>
-        </footer>
+            </div>
+            <p id="statusToast" class="text-xs mt-2.5 hidden"></p>
+        </section>
 
-    </div>
+        <!-- 4. Recent Emergency Dispatches (MongoDB Audit Log Collection) -->
+        <section class="pt-6 border-t border-zinc-800/80 space-y-3">
+            <div class="flex items-center justify-between">
+                <span class="text-xs mono uppercase tracking-wider text-emerald-400/90 flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    Recent Emergency Dispatches (MongoDB <code class="text-zinc-300">search_logs</code> Collection)
+                </span>
+                <span class="text-[11px] mono text-zinc-500">Auto-logged on Traverse</span>
+            </div>
+
+            <div id="logsContainer" class="grid grid-cols-1 gap-2">
+                <!-- Populated dynamically from MongoDB -->
+            </div>
+        </section>
+
+    </main>
 
     <script>
         async function updateStats() {
-            try {
-                const res = await fetch("/api/stats");
-                const data = await res.json();
-                document.getElementById("nodeCount").innerText = data.nodes;
-                document.getElementById("edgeCount").innerText = data.edges;
-            } catch (err) {
-                console.error("Stats error:", err);
-            }
-        }
-
-        async function initGraph() {
-            const res = await fetch("/api/init_graph", { method: "POST" });
+            const res = await fetch('/api/stats');
             const data = await res.json();
-            alert(data.message);
-            await updateStats();
-            await searchDonors();
+            document.getElementById('nodeCount').innerText = data.nodes;
+            document.getElementById('edgeCount').innerText = data.edges;
+            document.getElementById('mongoCount').innerText = data.mongo_docs;
         }
 
-        async function registerDonor() {
-            const payload = {
-                name: document.getElementById("regName").value.trim(),
-                phone: document.getElementById("regPhone").value.trim(),
-                blood_group: document.getElementById("regBg").value,
-                area: document.getElementById("regArea").value
-            };
-            if (!payload.name || !payload.phone) return alert("Enter donor name and contact number.");
-
-            await fetch("/api/register", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-
-            document.getElementById("regName").value = "";
-            document.getElementById("regPhone").value = "";
-            const status = document.getElementById("regStatus");
-            status.innerText = `✓ Linked ${payload.name} (${payload.blood_group}) to ${payload.area} in Neo4j`;
-            status.classList.remove("hidden");
-            setTimeout(() => status.classList.add("hidden"), 4000);
-            await updateStats();
-            await searchDonors();
-        }
-
-        async function searchDonors() {
-            const bg = document.getElementById("searchBg").value;
-            const area = document.getElementById("searchArea").value;
-            document.getElementById("targetNodeBadge").innerText = `(:BloodGroup {type: "${bg}"})`;
-
-            const res = await fetch(`/api/search?blood_group=${encodeURIComponent(bg)}&area=${encodeURIComponent(area)}`);
+        async function loadLogs() {
+            const res = await fetch('/api/logs');
             const data = await res.json();
-            const container = document.getElementById("resultsContainer");
-            const countLabel = document.getElementById("resultsCount");
+            const container = document.getElementById('logsContainer');
 
-            if (!data.matches || data.matches.length === 0) {
-                countLabel.innerText = "0 Found";
-                container.innerHTML = `
-                    <div class="py-14 text-center text-sm text-zinc-500 mono">
-                        No compatible donors logged in ${area} for blood group ${bg}. Click "⚡ Seed Rules" above to initialize data.
-                    </div>`;
+            if (!data.logs || data.logs.length === 0) {
+                container.innerHTML = `<div class="text-xs text-zinc-600 py-3">No emergency searches logged yet. Click "Traverse" above to log a dispatch document in MongoDB.</div>`;
                 return;
             }
 
-            countLabel.innerText = `${data.matches.length} Matches`;
-
-            container.innerHTML = data.matches.map(d => {
-                const isExact = d.match_type === "EXACT";
-                const badge = isExact
-                    ? `<span class="text-xs px-2.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/50 text-emerald-400 mono">Direct Exact</span>`
-                    : `<span class="text-xs px-2.5 py-0.5 rounded bg-zinc-800/80 text-zinc-300 mono">Compatible (${d.donor_blood_group} → ${bg})</span>`;
+            container.innerHTML = data.logs.map(log => {
+                const badgeColor = log.matches_count > 0 
+                    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' 
+                    : 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+                const namesList = log.matched_donors && log.matched_donors.length > 0 
+                    ? log.matched_donors.join(', ') 
+                    : 'Shortage Alert — 0 Compatible Donors';
 
                 return `
-                <div class="flex items-center justify-between p-5 hover:bg-zinc-900/60 transition group">
-                    <div class="flex items-center gap-4">
-                        <div class="w-11 h-11 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-base text-rose-400 mono">
-                            ${d.donor_blood_group}
+                    <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-zinc-900/40 border border-zinc-800/60 text-xs">
+                        <div class="flex items-center gap-3">
+                            <span class="mono text-zinc-500">${log.timestamp}</span>
+                            <span class="text-zinc-300">Searched <strong class="text-rose-400 mono">${log.needed_bg}</strong> in <strong class="text-white">${log.area}</strong></span>
+                            <span class="text-zinc-600">→</span>
+                            <span class="text-zinc-400 truncate max-w-md">${namesList}</span>
                         </div>
-                        <div>
-                            <div class="flex items-center gap-3">
-                                <h4 class="text-base font-semibold text-zinc-100 group-hover:text-white transition">${d.name}</h4>
-                                ${badge}
-                            </div>
-                            <p class="text-sm text-zinc-400 mono mt-0.5">Location: ${d.area}</p>
-                        </div>
+                        <span class="text-[11px] mono px-2 py-0.5 rounded border ${badgeColor}">
+                            ${log.matches_count} matched
+                        </span>
                     </div>
-
-                    <div class="text-right">
-                        <a href="tel:${d.phone}" class="text-sm text-zinc-300 hover:text-white mono transition">
-                            📞 ${d.phone}
-                        </a>
-                    </div>
-                </div>`;
-            }).join("");
+                `;
+            }).join('');
         }
 
-        updateStats();
-        searchDonors();
+        async function initGraph() {
+            const res = await fetch('/api/init_graph', { method: 'POST' });
+            const data = await res.json();
+            showToast(data.message, data.status === 'success');
+            await updateStats();
+            await searchDonors(true);
+        }
+
+        async function registerDonor() {
+            const name = document.getElementById('regName').value;
+            const phone = document.getElementById('regPhone').value;
+            const medical_note = document.getElementById('regNote').value;
+            const blood_group = document.getElementById('regBg').value;
+            const area = document.getElementById('regArea').value;
+
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, phone, medical_note, blood_group, area })
+            });
+            const data = await res.json();
+            showToast(data.message, data.status === 'success');
+
+            if (data.status === 'success') {
+                document.getElementById('regName').value = '';
+                document.getElementById('regPhone').value = '';
+                document.getElementById('regNote').value = '';
+                document.getElementById('searchArea').value = area;
+                document.getElementById('searchBg').value = blood_group;
+                await updateStats();
+                await searchDonors(true);
+            }
+        }
+
+        async function searchDonors(shouldLog = true) {
+            const bg = document.getElementById('searchBg').value;
+            const area = document.getElementById('searchArea').value;
+
+            document.getElementById('cypherPreview').innerText = `(:BloodGroup {type: "${bg}"})`;
+
+            const res = await fetch(`/api/search?blood_group=${encodeURIComponent(bg)}&area=${encodeURIComponent(area)}&log=${shouldLog}`);
+            const data = await res.json();
+            const container = document.getElementById('resultsContainer');
+
+            if (!data.matches || data.matches.length === 0) {
+                document.getElementById('matchCount').innerText = '0 found';
+                container.innerHTML = `
+                    <div class="py-12 text-center border border-dashed border-zinc-800/80 rounded-xl my-4">
+                        <p class="text-xs text-zinc-500">No compatible donors logged in <span class="text-zinc-300">${area}</span> for blood group <span class="text-rose-400 font-semibold">${bg}</span>.</p>
+                    </div>`;
+                await updateStats();
+                await loadLogs();
+                return;
+            }
+
+            document.getElementById('matchCount').innerText = `${data.matches.length} found`;
+
+            container.innerHTML = data.matches.map(d => {
+                const isExact = d.match_type === 'EXACT';
+                const badge = isExact 
+                    ? `<span class="text-[11px] mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Direct Exact</span>`
+                    : `<span class="text-[11px] mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Compatible (${d.donor_blood_group} → ${bg})</span>`;
+
+                return `
+                    <div class="py-3.5 flex items-center justify-between gap-4 group hover:bg-zinc-900/30 px-3 -mx-3 rounded-lg transition">
+                        <div class="flex items-center gap-4">
+                            <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-semibold text-xs mono text-rose-400">
+                                ${d.donor_blood_group}
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2.5">
+                                    <p class="text-sm font-medium text-zinc-100">${d.name}</p>
+                                    ${badge}
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 mt-1">
+                                    <span class="text-xs text-zinc-500">${d.area} Campus</span>
+                                    <span class="text-zinc-700">•</span>
+                                    <span class="text-[11px] mono px-2 py-0.5 rounded bg-emerald-950/30 text-emerald-300/90 border border-emerald-800/40">
+                                        MongoDB Profile: ${d.medical_note}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <a href="tel:${d.phone}" class="text-xs mono text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-1.5 rounded-lg transition">
+                            ${d.phone}
+                        </a>
+                    </div>
+                `;
+            }).join('');
+
+            await updateStats();
+            await loadLogs();
+        }
+
+        function showToast(msg, isSuccess) {
+            const toast = document.getElementById('statusToast');
+            toast.innerText = msg;
+            toast.className = `text-xs mt-2.5 ${isSuccess ? 'text-emerald-400' : 'text-rose-400'}`;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 4000);
+        }
+
+        window.onload = async () => {
+            await updateStats();
+            await searchDonors(true);
+        };
     </script>
 </body>
 </html>
