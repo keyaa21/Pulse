@@ -74,10 +74,10 @@
                 </div>
 
                 <!-- Inline Search Controls -->
-                <div class="flex items-center gap-2 bg-zinc-900/50 rounded-xl border border-zinc-800/80">
+                <div class="flex items-center gap-2 bg-zinc-900/50 rounded-xl border border-zinc-800/80 p-1">
                     <div class="flex items-center gap-2 px-3 py-1.5">
                         <span class="text-xs text-zinc-500">Need:</span>
-                        <select id="searchBg" onchange="searchDonors(true)" class="bg-transparent text-sm font-semibold text-rose-400 pr-6 focus:outline-none cursor-pointer">
+                        <select id="searchBg" onchange="updateCypherPreview()" class="bg-transparent text-sm font-semibold text-rose-400 pr-6 focus:outline-none cursor-pointer">
                             <option value="A+" class="bg-zinc-900 text-white">A+</option>
                             <option value="A-" class="bg-zinc-900 text-white">A-</option>
                             <option value="B+" class="bg-zinc-900 text-white">B+</option>
@@ -93,7 +93,7 @@
 
                     <div class="flex items-center gap-2 px-3 py-1.5">
                         <span class="text-xs text-zinc-500">Area:</span>
-                        <select id="searchArea" onchange="searchDonors(true)" class="bg-transparent text-sm font-medium text-zinc-200 pr-6 focus:outline-none cursor-pointer">
+                        <select id="searchArea" class="bg-transparent text-sm font-medium text-zinc-200 pr-6 focus:outline-none cursor-pointer">
                             <option value="Kothrud" class="bg-zinc-900 text-white">Kothrud</option>
                             <option value="Deccan" class="bg-zinc-900 text-white">Deccan</option>
                             <option value="Karve Nagar" class="bg-zinc-900 text-white">Karve Nagar</option>
@@ -101,15 +101,16 @@
                         </select>
                     </div>
 
-                    <button onclick="searchDonors(true)" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition cursor-pointer">
-                        Traverse
+                    <button id="traverseBtn" onclick="searchDonors(true)" class="bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-semibold px-4 py-2 rounded-lg transition cursor-pointer flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span>Traverse</span>
                     </button>
                 </div>
             </div>
 
             <!-- Subtle Cypher Path Bar -->
             <div class="px-4 py-2.5 rounded-lg bg-zinc-900/30 border border-zinc-800/50 flex items-center justify-between text-xs mono text-zinc-500 overflow-x-auto">
-                <span>Path: <strong class="text-zinc-300">(:CampusArea)</strong> &lt;-[:LIVES_IN]- <strong class="text-zinc-300">(:Donor)</strong> -[:HAS_BG]-&gt; <strong class="text-zinc-300">(:BloodGroup)</strong> -[:CAN_DONATE_TO]-&gt; <strong id="cypherPreview" class="text-rose-400 underline decoration-rose-500/30 underline-offset-4">(:BloodGroup {type: "A+"})</strong></span>
+                <span>Path: <strong class="text-zinc-300">(:CampusArea)</strong> &lt;-[:LIVES_IN]- <strong class="text-zinc-300">(:Donor)</strong> -[:HAS_BLOOD_GROUP]-&gt; <strong class="text-zinc-300">(:BloodGroup)</strong> -[:CAN_DONATE_TO]-&gt; <strong id="cypherPreview" class="text-rose-400 underline decoration-rose-500/30 underline-offset-4">(:BloodGroup {type: "A+"})</strong></span>
             </div>
         </section>
 
@@ -117,11 +118,13 @@
         <section class="space-y-3">
             <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
                 <span class="text-xs mono uppercase tracking-wider text-zinc-500">Compatible Donors (Neo4j Graph + MongoDB Medical Profile)</span>
-                <span id="matchCount" class="text-xs mono text-zinc-400">0 found</span>
+                <span id="matchCount" class="text-xs mono text-zinc-400">—</span>
             </div>
 
             <div id="resultsContainer" class="divide-y divide-zinc-800/50">
-                <!-- Populated dynamically -->
+                <div class="py-12 text-center border border-dashed border-zinc-800/80 rounded-xl my-4">
+                    <p class="text-xs text-zinc-500">Select patient requirement above and click <span class="text-rose-400 font-semibold">Traverse</span> to query Neo4j graph &amp; MongoDB documents.</p>
+                </div>
             </div>
         </section>
 
@@ -132,7 +135,10 @@
                     <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                     Register New Student Donor (Syncs to Neo4j Graph &amp; MongoDB Document Store)
                 </span>
-                <span class="text-xs text-zinc-600">↑</span>
+                <button onclick="openUpdateModal()" class="text-xs mono text-zinc-400 hover:text-white bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 px-3 py-1 rounded-lg transition cursor-pointer flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    Update Profile
+                </button>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
@@ -189,141 +195,420 @@
 
     </main>
 
+    <!-- 5. Update Profile Modal (CRUD across Neo4j & MongoDB) -->
+    <div id="editModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="font-semibold text-base text-white tracking-tight">Update Donor Profile</span>
+                        <span class="text-[10px] mono uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">Neo4j</span>
+                        <span class="text-[10px] mono uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-800/50">MongoDB</span>
+                    </div>
+                    <p class="text-xs text-zinc-500">Simultaneously update graph relationships in Neo4j and screening document in MongoDB.</p>
+                </div>
+                <button onclick="closeEditModal()" class="text-zinc-500 hover:text-zinc-300 p-1 rounded-lg hover:bg-zinc-900 transition cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Donor selector when opening modal independently -->
+            <div id="modalDonorSelectorWrapper" class="space-y-1.5 hidden">
+                <label class="text-[11px] mono text-zinc-400 block">Select Donor to Edit:</label>
+                <select id="modalDonorSelect" onchange="onModalDonorSelected()" class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-zinc-600 cursor-pointer">
+                    <!-- Populated from /api/donors -->
+                </select>
+            </div>
+
+            <form id="editForm" onsubmit="submitDonorUpdate(event)" class="space-y-3.5">
+                <input type="hidden" id="editOldPhone">
+
+                <div>
+                    <label class="block text-[11px] mono text-zinc-400 mb-1">Full Name</label>
+                    <input id="editName" type="text" required class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] mono text-zinc-400 mb-1">Phone Number (Donor Identifier)</label>
+                    <input id="editPhone" type="text" required class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] mono text-emerald-400/90 mb-1">MongoDB Medical Screening Document</label>
+                    <input id="editNote" type="text" placeholder="Hb 14.5 g/dL • Weight 70kg • Screening Details" class="w-full bg-zinc-900/70 border border-emerald-900/50 rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-600">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] mono text-zinc-400 mb-1">Blood Group (Neo4j Node)</label>
+                        <select id="editBg" class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-zinc-600 cursor-pointer">
+                            <option value="O-">O- (Universal)</option>
+                            <option value="O+">O+</option>
+                            <option value="A-">A-</option>
+                            <option value="A+">A+</option>
+                            <option value="B-">B-</option>
+                            <option value="B+">B+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="AB+">AB+</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] mono text-zinc-400 mb-1">Area (Neo4j Node)</label>
+                        <select id="editArea" class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-zinc-600 cursor-pointer">
+                            <option value="Kothrud">Kothrud</option>
+                            <option value="Deccan">Deccan</option>
+                            <option value="Karve Nagar">Karve Nagar</option>
+                            <option value="Viman Nagar">Viman Nagar</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-2">
+                    <button type="button" onclick="deleteCurrentDonor()" id="btnDeleteDonor" class="text-xs text-rose-400 hover:text-rose-300 mono hover:underline cursor-pointer flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        Delete Node &amp; Doc
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeEditModal()" class="text-xs font-medium px-4 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition cursor-pointer">
+                            Cancel
+                        </button>
+                        <button type="submit" id="saveEditBtn" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition cursor-pointer flex items-center gap-1.5">
+                            <span>Save &amp; Sync</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
+        let cachedDonorsList = [];
+        let hasSearchedOnce = false;
+
+        function updateCypherPreview() {
+            const bg = document.getElementById('searchBg').value;
+            const preview = document.getElementById('cypherPreview');
+            if (preview) {
+                preview.innerText = `(:BloodGroup {type: "${bg}"})`;
+            }
+        }
+
         async function updateStats() {
-            const res = await fetch('/api/stats');
-            const data = await res.json();
-            document.getElementById('nodeCount').innerText = data.nodes;
-            document.getElementById('edgeCount').innerText = data.edges;
-            document.getElementById('mongoCount').innerText = data.mongo_docs;
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                document.getElementById('nodeCount').innerText = data.nodes;
+                document.getElementById('edgeCount').innerText = data.edges;
+                document.getElementById('mongoCount').innerText = data.mongo_docs;
+            } catch (err) {
+                console.error("Failed to load telemetry stats:", err);
+            }
         }
 
         async function loadLogs() {
-            const res = await fetch('/api/logs');
-            const data = await res.json();
-            const container = document.getElementById('logsContainer');
+            try {
+                const res = await fetch('/api/logs');
+                const data = await res.json();
+                const container = document.getElementById('logsContainer');
 
-            if (!data.logs || data.logs.length === 0) {
-                container.innerHTML = `<div class="text-xs text-zinc-600 py-3">No emergency searches logged yet. Click "Traverse" above to log a dispatch document in MongoDB.</div>`;
-                return;
-            }
+                if (!data.logs || data.logs.length === 0) {
+                    container.innerHTML = `<div class="text-xs text-zinc-600 py-3">No emergency searches logged yet. Click "Traverse" above to log a dispatch document in MongoDB.</div>`;
+                    return;
+                }
 
-            container.innerHTML = data.logs.map(log => {
-                const badgeColor = log.matches_count > 0 
-                    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' 
-                    : 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-                const namesList = log.matched_donors && log.matched_donors.length > 0 
-                    ? log.matched_donors.join(', ') 
-                    : 'Shortage Alert — 0 Compatible Donors';
+                container.innerHTML = data.logs.map(log => {
+                    const badgeColor = log.matches_count > 0 
+                        ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' 
+                        : 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+                    const namesList = log.matched_donors && log.matched_donors.length > 0 
+                        ? log.matched_donors.join(', ') 
+                        : 'Shortage Alert — 0 Compatible Donors';
 
-                return `
-                    <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-zinc-900/40 border border-zinc-800/60 text-xs">
-                        <div class="flex items-center gap-3">
-                            <span class="mono text-zinc-500">${log.timestamp}</span>
-                            <span class="text-zinc-300">Searched <strong class="text-rose-400 mono">${log.needed_bg}</strong> in <strong class="text-white">${log.area}</strong></span>
-                            <span class="text-zinc-600">→</span>
-                            <span class="text-zinc-400 truncate max-w-md">${namesList}</span>
+                    return `
+                        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-zinc-900/40 border border-zinc-800/60 text-xs">
+                            <div class="flex items-center gap-3">
+                                <span class="mono text-zinc-500">${log.timestamp}</span>
+                                <span class="text-zinc-300">Searched <strong class="text-rose-400 mono">${log.needed_bg}</strong> in <strong class="text-white">${cleanArea(log.area)}</strong></span>
+                                <span class="text-zinc-600">→</span>
+                                <span class="text-zinc-400 truncate max-w-md">${namesList}</span>
+                            </div>
+                            <span class="text-[11px] mono px-2 py-0.5 rounded border ${badgeColor}">
+                                ${log.matches_count} matched
+                            </span>
                         </div>
-                        <span class="text-[11px] mono px-2 py-0.5 rounded border ${badgeColor}">
-                            ${log.matches_count} matched
-                        </span>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error("Failed to load audit logs:", err);
+            }
         }
 
         async function initGraph() {
-            const res = await fetch('/api/init_graph', { method: 'POST' });
-            const data = await res.json();
-            showToast(data.message, data.status === 'success');
-            await updateStats();
-            await searchDonors(true);
+            try {
+                const res = await fetch('/api/init_graph', { method: 'POST' });
+                const data = await res.json();
+                showToast(data.message, data.status === 'success');
+                await updateStats();
+                if (hasSearchedOnce) {
+                    await searchDonors(false);
+                }
+            } catch (err) {
+                showToast("Failed to reseed database: " + err.message, false);
+            }
         }
 
         async function registerDonor() {
-            const name = document.getElementById('regName').value;
-            const phone = document.getElementById('regPhone').value;
-            const medical_note = document.getElementById('regNote').value;
+            const name = document.getElementById('regName').value.trim();
+            const phone = document.getElementById('regPhone').value.trim();
+            const medical_note = document.getElementById('regNote').value.trim();
             const blood_group = document.getElementById('regBg').value;
             const area = document.getElementById('regArea').value;
 
-            const res = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, phone, medical_note, blood_group, area })
-            });
-            const data = await res.json();
-            showToast(data.message, data.status === 'success');
-
-            if (data.status === 'success') {
-                document.getElementById('regName').value = '';
-                document.getElementById('regPhone').value = '';
-                document.getElementById('regNote').value = '';
-                document.getElementById('searchArea').value = area;
-                document.getElementById('searchBg').value = blood_group;
-                await updateStats();
-                await searchDonors(true);
+            if (!name || !phone) {
+                showToast("Please provide both name and phone number.", false);
+                return;
             }
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone, medical_note, blood_group, area })
+                });
+                const data = await res.json();
+                showToast(data.message, data.status === 'success');
+
+                if (data.status === 'success') {
+                    document.getElementById('regName').value = '';
+                    document.getElementById('regPhone').value = '';
+                    document.getElementById('regNote').value = '';
+                    await updateStats();
+                    if (hasSearchedOnce) {
+                        await searchDonors(false);
+                    }
+                }
+            } catch (err) {
+                showToast("Registration error: " + err.message, false);
+            }
+        }
+
+        function cleanArea(area) {
+            if (!area) return '';
+            return area.replace(/\s+campus$/i, '').trim();
         }
 
         async function searchDonors(shouldLog = true) {
             const bg = document.getElementById('searchBg').value;
             const area = document.getElementById('searchArea').value;
+            const btn = document.getElementById('traverseBtn');
+            const originalBtnHtml = btn ? btn.innerHTML : '';
 
-            document.getElementById('cypherPreview').innerText = `(:BloodGroup {type: "${bg}"})`;
+            updateCypherPreview();
+            hasSearchedOnce = true;
 
-            const res = await fetch(`/api/search?blood_group=${encodeURIComponent(bg)}&area=${encodeURIComponent(area)}&log=${shouldLog}`);
-            const data = await res.json();
-            const container = document.getElementById('resultsContainer');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Traversing...`;
+            }
 
-            if (!data.matches || data.matches.length === 0) {
-                document.getElementById('matchCount').innerText = '0 found';
-                container.innerHTML = `
-                    <div class="py-12 text-center border border-dashed border-zinc-800/80 rounded-xl my-4">
-                        <p class="text-xs text-zinc-500">No compatible donors logged in <span class="text-zinc-300">${area}</span> for blood group <span class="text-rose-400 font-semibold">${bg}</span>.</p>
-                    </div>`;
+            try {
+                const res = await fetch(`/api/search?blood_group=${encodeURIComponent(bg)}&area=${encodeURIComponent(area)}&log=${shouldLog}`);
+                const data = await res.json();
+                const container = document.getElementById('resultsContainer');
+
+                if (!data.matches || data.matches.length === 0) {
+                    document.getElementById('matchCount').innerText = '0 found';
+                    container.innerHTML = `
+                        <div class="py-12 text-center border border-dashed border-zinc-800/80 rounded-xl my-4">
+                            <p class="text-xs text-zinc-500">No compatible donors logged in <span class="text-zinc-300">${cleanArea(area)}</span> for blood group <span class="text-rose-400 font-semibold">${bg}</span>.</p>
+                        </div>`;
+                    await updateStats();
+                    await loadLogs();
+                    return;
+                }
+
+                document.getElementById('matchCount').innerText = `${data.matches.length} found`;
+
+                container.innerHTML = data.matches.map(d => {
+                    const isExact = d.match_type === 'EXACT';
+                    const badge = isExact 
+                        ? `<span class="text-[11px] mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Exact Match</span>`
+                        : `<span class="text-[11px] mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Compatible (${d.donor_blood_group} → ${bg})</span>`;
+
+                    const serializedDonor = encodeURIComponent(JSON.stringify({
+                        name: d.name,
+                        phone: d.phone,
+                        blood_group: d.donor_blood_group,
+                        area: cleanArea(d.area),
+                        medical_note: d.medical_note
+                    }));
+
+                    return `
+                        <div class="py-3.5 flex items-center justify-between gap-4 group hover:bg-zinc-900/30 px-3 -mx-3 rounded-lg transition">
+                            <div class="flex items-center gap-4">
+                                <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-semibold text-xs mono text-rose-400">
+                                    ${d.donor_blood_group}
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2.5">
+                                        <p class="text-sm font-medium text-zinc-100">${d.name}</p>
+                                        ${badge}
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-2 mt-1">
+                                        <span class="text-xs text-zinc-500">${cleanArea(d.area)}</span>
+                                        <span class="text-zinc-700">•</span>
+                                        <span class="text-[11px] mono px-2 py-0.5 rounded bg-emerald-950/30 text-emerald-300/90 border border-emerald-800/40">
+                                            MongoDB Profile: ${d.medical_note}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="editDonorFromCard('${serializedDonor}')" class="text-xs mono text-zinc-400 hover:text-zinc-100 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5" title="Update Profile in Neo4j & MongoDB">
+                                    <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                    Edit
+                                </button>
+                                <a href="tel:${d.phone}" class="text-xs mono text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-1.5 rounded-lg transition">
+                                    ${d.phone}
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
                 await updateStats();
                 await loadLogs();
+            } catch (err) {
+                showToast("Search failed: " + err.message, false);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnHtml;
+                }
+            }
+        }
+
+        // ================= CRUD: UPDATE DONOR PROFILE (NEO4J + MONGODB) =================
+
+        function editDonorFromCard(encodedJson) {
+            const donor = JSON.parse(decodeURIComponent(encodedJson));
+            document.getElementById('modalDonorSelectorWrapper').classList.add('hidden');
+            populateEditModal(donor);
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        async function openUpdateModal() {
+            const modal = document.getElementById('editModal');
+            const selectorWrapper = document.getElementById('modalDonorSelectorWrapper');
+            const select = document.getElementById('modalDonorSelect');
+
+            try {
+                const res = await fetch('/api/donors');
+                const data = await res.json();
+                if (data.status === 'success' && data.donors && data.donors.length > 0) {
+                    cachedDonorsList = data.donors;
+                    select.innerHTML = cachedDonorsList.map((d, index) => 
+                        `<option value="${index}">${d.name} (${d.blood_group || 'Unknown'}, ${cleanArea(d.area)}) — ${d.phone}</option>`
+                    ).join('');
+                    selectorWrapper.classList.remove('hidden');
+                    populateEditModal(cachedDonorsList[0]);
+                } else {
+                    selectorWrapper.classList.add('hidden');
+                }
+            } catch (e) {
+                selectorWrapper.classList.add('hidden');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function onModalDonorSelected() {
+            const select = document.getElementById('modalDonorSelect');
+            const index = parseInt(select.value, 10);
+            if (cachedDonorsList && cachedDonorsList[index]) {
+                populateEditModal(cachedDonorsList[index]);
+            }
+        }
+
+        function populateEditModal(d) {
+            document.getElementById('editOldPhone').value = d.phone || '';
+            document.getElementById('editPhone').value = d.phone || '';
+            document.getElementById('editName').value = d.name || '';
+            document.getElementById('editNote').value = d.medical_note || '';
+            document.getElementById('editBg').value = d.blood_group || d.donor_blood_group || 'A+';
+            document.getElementById('editArea').value = cleanArea(d.area) || 'Kothrud';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        async function submitDonorUpdate(e) {
+            e.preventDefault();
+            const old_phone = document.getElementById('editOldPhone').value;
+            const phone = document.getElementById('editPhone').value.trim();
+            const name = document.getElementById('editName').value.trim();
+            const medical_note = document.getElementById('editNote').value.trim();
+            const blood_group = document.getElementById('editBg').value;
+            const area = document.getElementById('editArea').value;
+            const saveBtn = document.getElementById('saveEditBtn');
+            const origSaveText = saveBtn.innerHTML;
+
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Syncing...`;
+
+            try {
+                const res = await fetch('/api/donor/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_phone, phone, name, medical_note, blood_group, area })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    showToast(data.message, true);
+                    closeEditModal();
+                    await updateStats();
+                    if (hasSearchedOnce) {
+                        await searchDonors(false);
+                    }
+                } else {
+                    showToast(data.message || 'Update failed', false);
+                }
+            } catch (err) {
+                showToast("Update error: " + err.message, false);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = origSaveText;
+            }
+        }
+
+        async function deleteCurrentDonor() {
+            const phone = document.getElementById('editOldPhone').value || document.getElementById('editPhone').value;
+            const name = document.getElementById('editName').value;
+            if (!phone) return;
+
+            if (!confirm(`Are you sure you want to delete ${name} (${phone}) simultaneously from Neo4j & MongoDB?`)) {
                 return;
             }
 
-            document.getElementById('matchCount').innerText = `${data.matches.length} found`;
-
-            container.innerHTML = data.matches.map(d => {
-                const isExact = d.match_type === 'EXACT';
-                const badge = isExact 
-                    ? `<span class="text-[11px] mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Direct Exact</span>`
-                    : `<span class="text-[11px] mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Compatible (${d.donor_blood_group} → ${bg})</span>`;
-
-                return `
-                    <div class="py-3.5 flex items-center justify-between gap-4 group hover:bg-zinc-900/30 px-3 -mx-3 rounded-lg transition">
-                        <div class="flex items-center gap-4">
-                            <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-semibold text-xs mono text-rose-400">
-                                ${d.donor_blood_group}
-                            </div>
-                            <div>
-                                <div class="flex items-center gap-2.5">
-                                    <p class="text-sm font-medium text-zinc-100">${d.name}</p>
-                                    ${badge}
-                                </div>
-                                <div class="flex flex-wrap items-center gap-2 mt-1">
-                                    <span class="text-xs text-zinc-500">${d.area} Campus</span>
-                                    <span class="text-zinc-700">•</span>
-                                    <span class="text-[11px] mono px-2 py-0.5 rounded bg-emerald-950/30 text-emerald-300/90 border border-emerald-800/40">
-                                        MongoDB Profile: ${d.medical_note}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <a href="tel:${d.phone}" class="text-xs mono text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-1.5 rounded-lg transition">
-                            ${d.phone}
-                        </a>
-                    </div>
-                `;
-            }).join('');
-
-            await updateStats();
-            await loadLogs();
+            try {
+                const res = await fetch(`/api/donor/${encodeURIComponent(phone)}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showToast(data.message, true);
+                    closeEditModal();
+                    await updateStats();
+                    if (hasSearchedOnce) {
+                        await searchDonors(false);
+                    }
+                } else {
+                    showToast(data.message || 'Delete failed', false);
+                }
+            } catch (err) {
+                showToast("Delete error: " + err.message, false);
+            }
         }
 
         function showToast(msg, isSuccess) {
@@ -335,8 +620,9 @@
         }
 
         window.onload = async () => {
+            updateCypherPreview();
             await updateStats();
-            await searchDonors(true);
+            await loadLogs();
         };
     </script>
 </body>

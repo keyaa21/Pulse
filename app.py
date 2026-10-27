@@ -150,6 +150,139 @@ def register_donor():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route("/api/donor/update", methods=["POST", "PUT"])
+def update_donor():
+    """Simultaneously updates a person's profile in Neo4j Graph and MongoDB Document store."""
+    data = request.json or {}
+    old_phone = (data.get("old_phone") or data.get("phone") or "").strip()
+    phone = (data.get("phone") or old_phone).strip()
+    name = data.get("name", "").strip()
+    blood_group = data.get("blood_group", "").strip()
+    area = data.get("area", "").strip()
+    medical_note = data.get("medical_note", "").strip() or "Hb > 13.0 g/dL • Weight > 50kg • Eligible"
+
+    if not all([old_phone, name, phone, blood_group, area]):
+        return jsonify({"status": "error", "message": "Name, Phone, Blood Group, and Area are required."}), 400
+
+    try:
+        # 1. Update in Neo4j Graph Database
+        with driver.session() as session:
+            session.run("""
+                MERGE (d:Donor {phone: $old_phone})
+                SET d.name = $name, d.phone = $phone
+                WITH d
+                OPTIONAL MATCH (d)-[r1:HAS_BLOOD_GROUP]->()
+                DELETE r1
+                WITH d
+                MERGE (bg:BloodGroup {type: $blood_group})
+                MERGE (d)-[:HAS_BLOOD_GROUP]->(bg)
+                WITH d
+                OPTIONAL MATCH (d)-[r2:LIVES_IN]->()
+                DELETE r2
+                WITH d
+                MERGE (area:CampusArea {name: $area})
+                MERGE (d)-[:LIVES_IN]->(area)
+            """, old_phone=old_phone, phone=phone, name=name, blood_group=blood_group, area=area)
+
+        # 2. Update in MongoDB Document Database
+        doc = {
+            "name": name,
+            "phone": phone,
+            "blood_group": blood_group,
+            "area": area,
+            "medical_note": medical_note,
+            "verified": True,
+            "updated_at": datetime.now().strftime("%d %b %Y, %I:%M %p")
+        }
+
+        mongo_ok = is_mongo_online()
+        if old_phone != phone:
+            fallback_profiles.pop(old_phone, None)
+            if mongo_ok:
+                profiles_col.delete_one({"phone": old_phone})
+
+        fallback_profiles[phone] = doc
+        if mongo_ok:
+            profiles_col.update_one({"phone": phone}, {"$set": doc}, upsert=True)
+
+        return jsonify({
+            "status": "success",
+            "message": f"Updated {name}'s profile simultaneously in Neo4j & MongoDB!",
+            "donor": doc
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/donors", methods=["GET"])
+def get_all_donors():
+    """Returns all donors enriched with Neo4j graph relationships and MongoDB screening profiles."""
+    try:
+        with driver.session() as session:
+            result = session.run("""
+                MATCH (d:Donor)
+                OPTIONAL MATCH (d)-[:HAS_BLOOD_GROUP]->(bg:BloodGroup)
+                OPTIONAL MATCH (d)-[:LIVES_IN]->(a:CampusArea)
+                RETURN d.name AS name, d.phone AS phone, bg.type AS blood_group, a.name AS area
+                ORDER BY d.name ASC
+            """)
+            donors = [dict(record) for record in result]
+
+        mongo_ok = is_mongo_online()
+        for d in donors:
+            profile = None
+            if mongo_ok:
+                profile = profiles_col.find_one({"phone": d["phone"]}, {"_id": 0})
+            if not profile:
+                profile = fallback_profiles.get(d["phone"])
+            d["medical_note"] = profile.get("medical_note") if profile else "Hb > 13.0 g/dL • Weight > 50kg • Eligible"
+
+        return jsonify({"status": "success", "donors": donors})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/donor/<phone>", methods=["GET", "DELETE"])
+def donor_detail(phone):
+    """Read or Delete donor profile simultaneously in Neo4j and MongoDB."""
+    phone = phone.strip()
+    if request.method == "GET":
+        try:
+            with driver.session() as session:
+                record = session.run("""
+                    MATCH (d:Donor {phone: $phone})
+                    OPTIONAL MATCH (d)-[:HAS_BLOOD_GROUP]->(bg:BloodGroup)
+                    OPTIONAL MATCH (d)-[:LIVES_IN]->(a:CampusArea)
+                    RETURN d.name AS name, d.phone AS phone, bg.type AS blood_group, a.name AS area
+                """, phone=phone).single()
+
+            if not record:
+                profile = profiles_col.find_one({"phone": phone}, {"_id": 0}) if is_mongo_online() else fallback_profiles.get(phone)
+                if not profile:
+                    return jsonify({"status": "error", "message": "Donor not found"}), 404
+                return jsonify({"status": "success", "donor": profile})
+
+            d = dict(record)
+            profile = profiles_col.find_one({"phone": phone}, {"_id": 0}) if is_mongo_online() else fallback_profiles.get(phone)
+            d["medical_note"] = profile.get("medical_note") if profile else "Verified • Standard Eligibility"
+            return jsonify({"status": "success", "donor": d})
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    elif request.method == "DELETE":
+        try:
+            with driver.session() as session:
+                session.run("MATCH (d:Donor {phone: $phone}) DETACH DELETE d", phone=phone)
+
+            fallback_profiles.pop(phone, None)
+            if is_mongo_online():
+                profiles_col.delete_one({"phone": phone})
+
+            return jsonify({"status": "success", "message": f"Donor {phone} deleted from Neo4j & MongoDB."})
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route("/api/search", methods=["GET"])
 def search_compatible_donors():
     needed_bg = request.args.get("blood_group", "A+")
