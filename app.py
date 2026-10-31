@@ -255,7 +255,9 @@ def get_all_donors():
             d["disabled"] = profile.get("disabled", False) if profile else False
             d["disabled_until"] = profile.get("disabled_until") if profile else None
 
-        return jsonify({"status": "success", "donors": donors})
+        resp = jsonify({"status": "success", "donors": donors})
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return resp
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

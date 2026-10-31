@@ -142,10 +142,13 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-6 gap-2.5">
-                <input id="regName" type="text" placeholder="Full Name (e.g. Keya Joshi)" 
-                    class="bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
+                <div class="relative">
+                    <input id="regName" type="text" placeholder="Full Name (e.g. Keya Joshi)" autocomplete="off" autocorrect="off" spellcheck="false"
+                        class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
+                    <div id="regNameSuggestions" class="absolute left-0 right-0 top-full mt-1.5 bg-zinc-950 border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden hidden max-h-48 overflow-y-auto"></div>
+                </div>
                 
-                <input id="regPhone" type="text" placeholder="Phone Number" 
+                <input id="regPhone" type="text" placeholder="Phone Number" autocomplete="off"
                     class="bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
 
                 <input id="regNote" type="text" placeholder="Medical Screening (e.g. 64kg, Hb 14.2)" 
@@ -220,22 +223,29 @@
                 </select>
             </div>
 
-            <form id="editForm" onsubmit="submitDonorUpdate(event)" class="space-y-3.5">
+            <form id="editForm" onsubmit="submitDonorUpdate(event)" autocomplete="off" class="space-y-3.5">
                 <input type="hidden" id="editOldPhone">
 
                 <div>
-                    <label class="block text-[11px] mono text-zinc-400 mb-1">Full Name</label>
-                    <input id="editName" type="text" required class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-[11px] mono text-zinc-400">Full Name</label>
+                        <span class="text-[10px] text-zinc-600">Type 4+ letters for suggestions</span>
+                    </div>
+                    <div class="relative">
+                        <input id="editName" type="text" required autocomplete="off" autocorrect="off" spellcheck="false" 
+                            class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
+                        <div id="editNameSuggestions" class="absolute left-0 right-0 top-full mt-1.5 bg-zinc-950 border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden hidden max-h-48 overflow-y-auto"></div>
+                    </div>
                 </div>
 
                 <div>
                     <label class="block text-[11px] mono text-zinc-400 mb-1">Phone Number (Donor Identifier)</label>
-                    <input id="editPhone" type="text" required class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
+                    <input id="editPhone" type="text" required autocomplete="off" class="w-full bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600">
                 </div>
 
                 <div>
                     <label class="block text-[11px] mono text-emerald-400/90 mb-1">MongoDB Medical Screening Document</label>
-                    <input id="editNote" type="text" placeholder="Hb 14.5 g/dL • Weight 70kg • Screening Details" class="w-full bg-zinc-900/70 border border-emerald-900/50 rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-600">
+                    <input id="editNote" type="text" autocomplete="off" placeholder="Hb 14.5 g/dL • Weight 70kg • Screening Details" class="w-full bg-zinc-900/70 border border-emerald-900/50 rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-600">
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
@@ -382,6 +392,7 @@
                 const data = await res.json();
                 showToast(data.message, data.status === 'success');
                 await updateStats();
+                await fetchDonorsList();
                 if (hasSearchedOnce) {
                     await searchDonors(false);
                 }
@@ -416,6 +427,7 @@
                     document.getElementById('regPhone').value = '';
                     document.getElementById('regNote').value = '';
                     await updateStats();
+                    await fetchDonorsList();
                     if (hasSearchedOnce) {
                         await searchDonors(false);
                     }
@@ -525,7 +537,54 @@
 
         // ================= CRUD: UPDATE DONOR PROFILE (NEO4J + MONGODB) =================
 
+        async function fetchDonorsList() {
+            try {
+                const res = await fetch(`/api/donors?_t=${Date.now()}`, { cache: 'no-store' });
+                const data = await res.json();
+                if (data.status === 'success' && data.donors) {
+                    cachedDonorsList = data.donors;
+                }
+            } catch (err) {
+                console.error("Failed to fetch donors:", err);
+            }
+        }
+
+        function resetEditModal() {
+            document.getElementById('editOldPhone').value = '';
+            document.getElementById('editPhone').value = '';
+            document.getElementById('editName').value = '';
+            document.getElementById('editNote').value = '';
+            document.getElementById('editBg').value = 'A+';
+            document.getElementById('editArea').value = 'Kothrud';
+            document.getElementById('disableMonths').value = '1';
+
+            const select = document.getElementById('modalDonorSelect');
+            if (select) select.value = '';
+
+            const badge = document.getElementById('statusBadge');
+            const hint = document.getElementById('statusToggleHint');
+            const disableControls = document.getElementById('disableControls');
+            const reviveControls = document.getElementById('reviveControls');
+
+            if (badge) {
+                badge.textContent = 'Active';
+                badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+            }
+            if (hint) {
+                hint.textContent = 'Select a registered donor or type name (4+ letters) to edit';
+            }
+            if (disableControls) disableControls.classList.remove('hidden');
+            if (reviveControls) reviveControls.classList.add('hidden');
+
+            const editSuggestions = document.getElementById('editNameSuggestions');
+            if (editSuggestions) {
+                editSuggestions.classList.add('hidden');
+                editSuggestions.innerHTML = '';
+            }
+        }
+
         function editDonorFromCard(encodedJson) {
+            resetEditModal();
             const donor = JSON.parse(decodeURIComponent(encodedJson));
             document.getElementById('modalDonorSelectorWrapper').classList.add('hidden');
             populateEditModal(donor);
@@ -533,20 +592,19 @@
         }
 
         async function openUpdateModal() {
+            resetEditModal();
             const modal = document.getElementById('editModal');
             const selectorWrapper = document.getElementById('modalDonorSelectorWrapper');
             const select = document.getElementById('modalDonorSelect');
 
             try {
-                const res = await fetch('/api/donors');
-                const data = await res.json();
-                if (data.status === 'success' && data.donors && data.donors.length > 0) {
-                    cachedDonorsList = data.donors;
-                    select.innerHTML = cachedDonorsList.map((d, index) => 
-                        `<option value="${index}">${d.name} (${d.blood_group || 'Unknown'}, ${cleanArea(d.area)}) — ${d.phone}</option>`
-                    ).join('');
+                await fetchDonorsList();
+                if (cachedDonorsList && cachedDonorsList.length > 0) {
+                    select.innerHTML = '<option value="" selected disabled>-- Select a registered donor to edit --</option>' + 
+                        cachedDonorsList.map((d, index) => 
+                            `<option value="${index}">${d.name} (${d.blood_group || 'Unknown'}, ${cleanArea(d.area)}) — ${d.phone}${d.disabled ? ' [PAUSED]' : ''}</option>`
+                        ).join('');
                     selectorWrapper.classList.remove('hidden');
-                    populateEditModal(cachedDonorsList[0]);
                 } else {
                     selectorWrapper.classList.add('hidden');
                 }
@@ -559,6 +617,7 @@
 
         function onModalDonorSelected() {
             const select = document.getElementById('modalDonorSelect');
+            if (select.value === "" || select.value === null) return;
             const index = parseInt(select.value, 10);
             if (cachedDonorsList && cachedDonorsList[index]) {
                 populateEditModal(cachedDonorsList[index]);
@@ -572,6 +631,14 @@
             document.getElementById('editNote').value = d.medical_note || '';
             document.getElementById('editBg').value = d.blood_group || d.donor_blood_group || 'A+';
             document.getElementById('editArea').value = cleanArea(d.area) || 'Kothrud';
+            document.getElementById('disableMonths').value = '1';
+
+            // Sync dropdown if visible
+            const select = document.getElementById('modalDonorSelect');
+            if (select && cachedDonorsList) {
+                const idx = cachedDonorsList.findIndex(cd => cd.phone === d.phone);
+                if (idx !== -1) select.value = idx;
+            }
 
             // Update account status section
             const isDisabled = !!d.disabled;
@@ -604,6 +671,7 @@
 
         function closeEditModal() {
             document.getElementById('editModal').classList.add('hidden');
+            resetEditModal();
         }
 
         async function toggleDonorStatus(action) {
@@ -621,7 +689,17 @@
 
                 if (data.status === 'success') {
                     showToast(data.message, true);
-                    // Update the status section in-place without closing modal
+                    
+                    // Update cached donor record immediately
+                    if (cachedDonorsList) {
+                        const found = cachedDonorsList.find(cd => cd.phone === phone);
+                        if (found) {
+                            found.disabled = data.disabled;
+                            found.disabled_until = data.disabled_until;
+                        }
+                    }
+
+                    // Update the status section in-place
                     const badge = document.getElementById('statusBadge');
                     const hint = document.getElementById('statusToggleHint');
                     const disableControls = document.getElementById('disableControls');
@@ -683,6 +761,7 @@
                     showToast(data.message, true);
                     closeEditModal();
                     await updateStats();
+                    await fetchDonorsList();
                     if (hasSearchedOnce) {
                         await searchDonors(false);
                     }
@@ -713,6 +792,7 @@
                     showToast(data.message, true);
                     closeEditModal();
                     await updateStats();
+                    await fetchDonorsList();
                     if (hasSearchedOnce) {
                         await searchDonors(false);
                     }
@@ -732,10 +812,109 @@
             setTimeout(() => toast.classList.add('hidden'), 4000);
         }
 
+        // ================= 4-LETTER REGISTERED DONOR AUTOCOMPLETE =================
+
+        function setupNameAutocomplete(inputId, dropdownId) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            if (!input || !dropdown) return;
+
+            input.addEventListener('input', async () => {
+                const query = input.value.trim().toLowerCase();
+
+                // Strict rule: only show suggestions after four letters (length >= 4)
+                if (query.length < 4) {
+                    dropdown.classList.add('hidden');
+                    dropdown.innerHTML = '';
+                    return;
+                }
+
+                if (!cachedDonorsList || cachedDonorsList.length === 0) {
+                    await fetchDonorsList();
+                }
+
+                const matches = (cachedDonorsList || []).filter(d => 
+                    d.name && d.name.toLowerCase().includes(query)
+                );
+
+                if (matches.length === 0) {
+                    dropdown.classList.add('hidden');
+                    dropdown.innerHTML = '';
+                    return;
+                }
+
+                dropdown.innerHTML = matches.slice(0, 6).map(d => {
+                    const pausedBadge = d.disabled 
+                        ? `<span class="text-[9px] mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Paused</span>`
+                        : `<span class="text-[9px] mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Active</span>`;
+                    const safePhone = (d.phone || '').replace(/'/g, "\\'");
+
+                    return `
+                        <div class="px-3.5 py-2 hover:bg-zinc-800/80 cursor-pointer transition flex items-center justify-between gap-2 border-b border-zinc-800/50 last:border-b-0"
+                             onmousedown="selectSuggestedDonor('${inputId}', '${dropdownId}', '${safePhone}')">
+                            <div class="flex items-center gap-2 overflow-hidden">
+                                <span class="text-xs font-medium text-zinc-100 truncate">${d.name}</span>
+                                <span class="text-[10px] mono text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">${d.blood_group || '—'}</span>
+                                <span class="text-[10px] text-zinc-500">${cleanArea(d.area)}</span>
+                            </div>
+                            <div class="shrink-0 flex items-center gap-1.5">
+                                ${pausedBadge}
+                                <span class="text-[10px] mono text-zinc-500">${d.phone}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                dropdown.classList.remove('hidden');
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    dropdown.classList.add('hidden');
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                setTimeout(() => dropdown.classList.add('hidden'), 250);
+            });
+        }
+
+        function selectSuggestedDonor(inputId, dropdownId, phone) {
+            const dropdown = document.getElementById(dropdownId);
+            if (dropdown) dropdown.classList.add('hidden');
+
+            const donor = (cachedDonorsList || []).find(d => d.phone === phone);
+            if (!donor) return;
+
+            if (inputId === 'editName') {
+                populateEditModal(donor);
+            } else if (inputId === 'regName') {
+                document.getElementById('regName').value = donor.name;
+                if (!document.getElementById('regPhone').value) document.getElementById('regPhone').value = donor.phone;
+                if (donor.blood_group) document.getElementById('regBg').value = donor.blood_group;
+                if (donor.area) document.getElementById('regArea').value = cleanArea(donor.area);
+                if (donor.medical_note && !document.getElementById('regNote').value) document.getElementById('regNote').value = donor.medical_note;
+            }
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#regName') && !e.target.closest('#regNameSuggestions')) {
+                const d = document.getElementById('regNameSuggestions');
+                if (d) d.classList.add('hidden');
+            }
+            if (!e.target.closest('#editName') && !e.target.closest('#editNameSuggestions')) {
+                const d = document.getElementById('editNameSuggestions');
+                if (d) d.classList.add('hidden');
+            }
+        });
+
         window.onload = async () => {
             updateCypherPreview();
             await updateStats();
             await loadLogs();
+            await fetchDonorsList();
+            setupNameAutocomplete('editName', 'editNameSuggestions');
+            setupNameAutocomplete('regName', 'regNameSuggestions');
         };
     </script>
 </body>
