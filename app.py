@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from neo4j import GraphDatabase
 from pymongo import MongoClient
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -87,6 +87,8 @@ def seed_database_now():
             "area": d["area"],
             "medical_note": d["note"],
             "verified": True,
+            "disabled": False,
+            "disabled_until": None,
             "updated_at": datetime.now().strftime("%d %b %Y, %I:%M %p")
         }
         fallback_profiles[d["phone"]] = doc
@@ -139,6 +141,8 @@ def register_donor():
             "area": area,
             "medical_note": medical_note,
             "verified": True,
+            "disabled": False,
+            "disabled_until": None,
             "updated_at": datetime.now().strftime("%d %b %Y, %I:%M %p")
         }
         fallback_profiles[phone] = doc
@@ -200,6 +204,18 @@ def update_donor():
             fallback_profiles.pop(old_phone, None)
             if mongo_ok:
                 profiles_col.delete_one({"phone": old_phone})
+        else:
+            # Preserve existing disabled state when editing other profile fields
+            existing = fallback_profiles.get(phone, {})
+            if mongo_ok:
+                existing_mongo = profiles_col.find_one({"phone": phone}, {"_id": 0}) or {}
+                existing = existing_mongo or existing
+            doc["disabled"] = existing.get("disabled", False)
+            doc["disabled_until"] = existing.get("disabled_until", None)
+
+        if "disabled" not in doc:
+            doc["disabled"] = False
+            doc["disabled_until"] = None
 
         fallback_profiles[phone] = doc
         if mongo_ok:
@@ -236,6 +252,8 @@ def get_all_donors():
             if not profile:
                 profile = fallback_profiles.get(d["phone"])
             d["medical_note"] = profile.get("medical_note") if profile else "Hb > 13.0 g/dL • Weight > 50kg • Eligible"
+            d["disabled"] = profile.get("disabled", False) if profile else False
+            d["disabled_until"] = profile.get("disabled_until") if profile else None
 
         return jsonify({"status": "success", "donors": donors})
     except Exception as e:
@@ -283,6 +301,60 @@ def donor_detail(phone):
             return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route("/api/donor/toggle-status", methods=["POST"])
+def toggle_donor_status():
+    """Disable (for up to 6 months) or revive a donor account in MongoDB.
+    Disabled donors are excluded from Neo4j traversal search results.
+    When disabled_until expires, the donor is auto-revived on the next search.
+    """
+    data = request.json or {}
+    phone = (data.get("phone") or "").strip()
+    action = (data.get("action") or "").strip().lower()   # "disable" or "revive"
+    months = int(data.get("months") or 1)
+
+    if not phone or action not in ("disable", "revive"):
+        return jsonify({"status": "error", "message": "phone and action ('disable'|'revive') are required."}), 400
+
+    months = max(1, min(months, 6))   # Clamp to 1–6 months
+
+    try:
+        if action == "disable":
+            disabled_until = (datetime.now() + timedelta(days=30 * months)).strftime("%Y-%m-%dT%H:%M:%S")
+            patch = {
+                "disabled": True,
+                "disabled_until": disabled_until,
+                "updated_at": datetime.now().strftime("%d %b %Y, %I:%M %p")
+            }
+            msg = f"Account paused for {months} month{'s' if months > 1 else ''}. Revives on {datetime.strptime(disabled_until, '%Y-%m-%dT%H:%M:%S').strftime('%d %b %Y')}."
+        else:  # revive
+            patch = {
+                "disabled": False,
+                "disabled_until": None,
+                "updated_at": datetime.now().strftime("%d %b %Y, %I:%M %p")
+            }
+            msg = "Account reactivated successfully."
+
+        # Update MongoDB document
+        if phone in fallback_profiles:
+            fallback_profiles[phone].update(patch)
+        mongo_ok = is_mongo_online()
+        if mongo_ok:
+            result = profiles_col.update_one({"phone": phone}, {"$set": patch})
+            if result.matched_count == 0:
+                return jsonify({"status": "error", "message": "Donor not found in MongoDB."}), 404
+        elif phone not in fallback_profiles:
+            return jsonify({"status": "error", "message": "Donor not found."}), 404
+
+        return jsonify({
+            "status": "success",
+            "message": msg,
+            "disabled": patch["disabled"],
+            "disabled_until": patch.get("disabled_until")
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route("/api/search", methods=["GET"])
 def search_compatible_donors():
     needed_bg = request.args.get("blood_group", "A+")
@@ -306,14 +378,43 @@ def search_compatible_donors():
             donors = [dict(record) for record in result]
 
         # 2. Enrich Each Matched Donor With Medical Profile from MongoDB
+        # Also auto-revive donors whose disable period has expired, and filter out still-disabled ones
         mongo_ok = is_mongo_online()
+        now = datetime.now()
+        active_donors = []
         for d in donors:
             profile = None
             if mongo_ok:
                 profile = profiles_col.find_one({"phone": d["phone"]}, {"_id": 0})
             if not profile:
                 profile = fallback_profiles.get(d["phone"])
+
+            # Auto-revive: if disabled_until has passed, clear the disabled flag
+            if profile:
+                disabled_until = profile.get("disabled_until")
+                if disabled_until and profile.get("disabled", False):
+                    try:
+                        expiry = datetime.strptime(disabled_until, "%Y-%m-%dT%H:%M:%S")
+                        if now >= expiry:
+                            revive_patch = {"disabled": False, "disabled_until": None}
+                            if profile.get("phone"):
+                                fallback_profiles.get(profile["phone"], {}).update(revive_patch)
+                            if mongo_ok:
+                                profiles_col.update_one({"phone": d["phone"]}, {"$set": revive_patch})
+                            profile["disabled"] = False
+                            profile["disabled_until"] = None
+                    except (ValueError, TypeError):
+                        pass
+
+            # Skip donors who are still disabled
+            if profile and profile.get("disabled", False):
+                continue
+
             d["medical_note"] = profile.get("medical_note") if profile else "Verified • Standard Eligibility"
+            d["disabled"] = False
+            active_donors.append(d)
+
+        donors = active_donors
 
         # 3. Automatically Insert Search Audit Log into MongoDB
         if log_search:

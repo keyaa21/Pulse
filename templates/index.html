@@ -278,6 +278,38 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Account Status: Disable / Revive -->
+                <div id="statusToggleSection" class="pt-3 border-t border-zinc-800/60 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] mono text-zinc-400">Account Status</p>
+                            <p id="statusToggleHint" class="text-[10px] text-zinc-600 mt-0.5">Active — appears in emergency searches</p>
+                        </div>
+                        <span id="statusBadge" class="text-[10px] mono px-2 py-0.5 rounded border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">Active</span>
+                    </div>
+                    <div id="disableControls" class="flex items-center gap-2">
+                        <label class="text-[11px] mono text-zinc-500 shrink-0">Pause for:</label>
+                        <select id="disableMonths" class="bg-zinc-900/70 border border-zinc-800/90 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-600 cursor-pointer">
+                            <option value="1">1 month</option>
+                            <option value="2">2 months</option>
+                            <option value="3">3 months</option>
+                            <option value="4">4 months</option>
+                            <option value="5">5 months</option>
+                            <option value="6">6 months</option>
+                        </select>
+                        <button type="button" onclick="toggleDonorStatus('disable')" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 transition cursor-pointer flex items-center gap-1.5">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Pause Account
+                        </button>
+                    </div>
+                    <div id="reviveControls" class="hidden">
+                        <button type="button" onclick="toggleDonorStatus('revive')" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition cursor-pointer flex items-center gap-1.5">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            Revive Account
+                        </button>
+                    </div>
+                </div>
             </form>
         </div>
     </div>
@@ -441,7 +473,9 @@
                         phone: d.phone,
                         blood_group: d.donor_blood_group,
                         area: cleanArea(d.area),
-                        medical_note: d.medical_note
+                        medical_note: d.medical_note,
+                        disabled: d.disabled || false,
+                        disabled_until: d.disabled_until || null
                     }));
 
                     return `
@@ -538,10 +572,89 @@
             document.getElementById('editNote').value = d.medical_note || '';
             document.getElementById('editBg').value = d.blood_group || d.donor_blood_group || 'A+';
             document.getElementById('editArea').value = cleanArea(d.area) || 'Kothrud';
+
+            // Update account status section
+            const isDisabled = !!d.disabled;
+            const badge = document.getElementById('statusBadge');
+            const hint = document.getElementById('statusToggleHint');
+            const disableControls = document.getElementById('disableControls');
+            const reviveControls = document.getElementById('reviveControls');
+
+            if (isDisabled) {
+                badge.textContent = 'Paused';
+                badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-amber-400 bg-amber-500/10 border-amber-500/20';
+                let hintText = 'Paused \u2014 hidden from emergency searches';
+                if (d.disabled_until) {
+                    try {
+                        const exp = new Date(d.disabled_until);
+                        hintText += ` \u00b7 Revives ${exp.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+                    } catch(e) {}
+                }
+                hint.textContent = hintText;
+                disableControls.classList.add('hidden');
+                reviveControls.classList.remove('hidden');
+            } else {
+                badge.textContent = 'Active';
+                badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                hint.textContent = 'Active \u2014 appears in emergency searches';
+                disableControls.classList.remove('hidden');
+                reviveControls.classList.add('hidden');
+            }
         }
 
         function closeEditModal() {
             document.getElementById('editModal').classList.add('hidden');
+        }
+
+        async function toggleDonorStatus(action) {
+            const phone = document.getElementById('editOldPhone').value || document.getElementById('editPhone').value;
+            if (!phone) return;
+            const months = parseInt(document.getElementById('disableMonths').value, 10) || 1;
+
+            try {
+                const res = await fetch('/api/donor/toggle-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, action, months })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    showToast(data.message, true);
+                    // Update the status section in-place without closing modal
+                    const badge = document.getElementById('statusBadge');
+                    const hint = document.getElementById('statusToggleHint');
+                    const disableControls = document.getElementById('disableControls');
+                    const reviveControls = document.getElementById('reviveControls');
+
+                    if (data.disabled) {
+                        badge.textContent = 'Paused';
+                        badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-amber-400 bg-amber-500/10 border-amber-500/20';
+                        let hintText = 'Paused \u2014 hidden from emergency searches';
+                        if (data.disabled_until) {
+                            const exp = new Date(data.disabled_until);
+                            hintText += ` \u00b7 Revives ${exp.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+                        }
+                        hint.textContent = hintText;
+                        disableControls.classList.add('hidden');
+                        reviveControls.classList.remove('hidden');
+                    } else {
+                        badge.textContent = 'Active';
+                        badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                        hint.textContent = 'Active \u2014 appears in emergency searches';
+                        disableControls.classList.remove('hidden');
+                        reviveControls.classList.add('hidden');
+                    }
+
+                    if (hasSearchedOnce) {
+                        await searchDonors(false);
+                    }
+                } else {
+                    showToast(data.message || 'Status change failed', false);
+                }
+            } catch (err) {
+                showToast('Status toggle error: ' + err.message, false);
+            }
         }
 
         async function submitDonorUpdate(e) {
