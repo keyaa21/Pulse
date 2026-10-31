@@ -1,0 +1,6 @@
+Flask
+neo4j
+pymongo[srv]
+certifi
+python-dotenv
+gunicorn
