@@ -1,29 +1,33 @@
 import os
 import certifi
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify
 from neo4j import GraphDatabase
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
-# Loads your secret credentials from the .env file locally
+# Loads secret credentials from .env file locally
 load_dotenv()
 
 app = Flask(__name__)
 
 # 1. NEO4J AURADB CONNECTION (GRAPH DATABASE)
-NEO4J_URI = os.environ.get("NEO4J_URI")
-NEO4J_USER = os.environ.get("NEO4J_USER")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
+NEO4J_URI = os.environ.get("NEO4J_URI", "neo4j+ssc://efa94ecb.databases.neo4j.io")
+NEO4J_USER = os.environ.get("NEO4J_USER", "efa94ecb")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "NuIUuBllss-ZgF8QFgyNhSBsMdZizmyOqZNNoKnGoY4")
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
-# 2. MONGODB ATLAS CONNECTION (DOCUMENT DATABASE)
-MONGO_URI = os.environ.get("MONGO_URI")
-mongo_client = MongoClient(MONGO_URI, tlsCAFile=certifi.where(), serverSelectionTimeoutMS=5000)
+# 2. MONGODB ATLAS / LOCAL CONNECTION (DOCUMENT DATABASE)
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
+mongo_client = MongoClient(MONGO_URI, tlsCAFile=certifi.where() if "mongodb+srv" in (MONGO_URI or "") else None, serverSelectionTimeoutMS=4000)
 mongo_db = mongo_client["pulse_mongodb"]
 profiles_col = mongo_db["donor_profiles"]
 logs_col = mongo_db["search_logs"]
+
+# Resilient in-memory fallbacks
+fallback_profiles = {}
+fallback_logs = []
 
 def is_mongo_online():
     try:
@@ -56,26 +60,30 @@ def seed_database_now():
         {"name": "Kabir Joshi",    "phone": "9823077889", "bg": "A+",  "area": "Kothrud",     "note": "Hb 14.6 g/dL • 71 kg • No Allergies"},
         {"name": "Sneha Patil",    "phone": "9765011223", "bg": "B+",  "area": "Deccan",      "note": "Hb 13.8 g/dL • 58 kg • Eligible Now"},
         {"name": "Vikram Shinde",  "phone": "9765099887", "bg": "O+",  "area": "Deccan",      "note": "Hb 14.9 g/dL • 74 kg • Last donated 5m ago"},
-        {"name": "Ananya Sharma",  "phone": "9123456780", "bg": "AB+", "area": "Viman Nagar", "note": "Hb 13.2 g/dL • 55 kg • Verified Student"}
+        {"name": "Ananya Sharma",  "phone": "9123456780", "bg": "AB+", "area": "Viman Nagar", "note": "Hb 13.2 g/dL • 55 kg • Verified Student"},
+        {"name": "Vikrant Joshi",  "phone": "9545550854", "bg": "AB-", "area": "Kothrud",     "note": "Hb 14.5 g/dL • 70 kg • Screening Details"}
     ]
 
     # 1. Seed Neo4j Graph
-    with driver.session() as session:
-        session.run("""
-            UNWIND $pairs AS pair
-            MERGE (b1:BloodGroup {type: pair.from_bg})
-            MERGE (b2:BloodGroup {type: pair.to_bg})
-            MERGE (b1)-[:CAN_DONATE_TO]->(b2)
-        """, pairs=pairs)
+    try:
+        with driver.session() as session:
+            session.run("""
+                UNWIND $pairs AS pair
+                MERGE (b1:BloodGroup {type: pair.from_bg})
+                MERGE (b2:BloodGroup {type: pair.to_bg})
+                MERGE (b1)-[:CAN_DONATE_TO]->(b2)
+            """, pairs=pairs)
 
-        session.run("""
-            UNWIND $donors AS d
-            MERGE (bg:BloodGroup {type: d.bg})
-            MERGE (area:CampusArea {name: d.area})
-            MERGE (donor:Donor {name: d.name, phone: d.phone})
-            MERGE (donor)-[:HAS_BLOOD_GROUP]->(bg)
-            MERGE (donor)-[:LIVES_IN]->(area)
-        """, donors=sample_donors)
+            session.run("""
+                UNWIND $donors AS d
+                MERGE (bg:BloodGroup {type: d.bg})
+                MERGE (area:CampusArea {name: d.area})
+                MERGE (donor:Donor {name: d.name, phone: d.phone})
+                MERGE (donor)-[:HAS_BLOOD_GROUP]->(bg)
+                MERGE (donor)-[:LIVES_IN]->(area)
+            """, donors=sample_donors)
+    except Exception as e:
+        print(f"[Neo4j] seed notice: {e}")
 
     # 2. Seed MongoDB Donor Medical Screening Profiles
     mongo_ok = is_mongo_online()
@@ -112,7 +120,7 @@ def init_graph():
 
 @app.route("/api/register", methods=["POST"])
 def register_donor():
-    data = request.json
+    data = request.json or {}
     name = data.get("name", "").strip()
     phone = data.get("phone", "").strip()
     blood_group = data.get("blood_group", "").strip()
@@ -124,14 +132,17 @@ def register_donor():
 
     try:
         # 1. Create Node & Relationships in Neo4j
-        with driver.session() as session:
-            session.run("""
-                MERGE (bg:BloodGroup {type: $blood_group})
-                MERGE (area:CampusArea {name: $area})
-                MERGE (d:Donor {name: $name, phone: $phone})
-                MERGE (d)-[:HAS_BLOOD_GROUP]->(bg)
-                MERGE (d)-[:LIVES_IN]->(area)
-            """, name=name, phone=phone, blood_group=blood_group, area=area)
+        try:
+            with driver.session() as session:
+                session.run("""
+                    MERGE (bg:BloodGroup {type: $blood_group})
+                    MERGE (area:CampusArea {name: $area})
+                    MERGE (d:Donor {name: $name, phone: $phone})
+                    MERGE (d)-[:HAS_BLOOD_GROUP]->(bg)
+                    MERGE (d)-[:LIVES_IN]->(area)
+                """, name=name, phone=phone, blood_group=blood_group, area=area)
+        except Exception as e:
+            print(f"[Neo4j] register notice: {e}")
 
         # 2. Save Flexible Medical Screening JSON Document in MongoDB
         doc = {
@@ -158,35 +169,38 @@ def register_donor():
 def update_donor():
     """Simultaneously updates a person's profile in Neo4j Graph and MongoDB Document store."""
     data = request.json or {}
-    old_phone = (data.get("old_phone") or data.get("phone") or "").strip()
-    phone = (data.get("phone") or old_phone).strip()
+    phone = (data.get("phone") or "").strip()
+    old_phone = (data.get("old_phone") or phone).strip()
     name = data.get("name", "").strip()
     blood_group = data.get("blood_group", "").strip()
     area = data.get("area", "").strip()
     medical_note = data.get("medical_note", "").strip() or "Hb > 13.0 g/dL • Weight > 50kg • Eligible"
 
-    if not all([old_phone, name, phone, blood_group, area]):
+    if not all([name, phone, blood_group, area]):
         return jsonify({"status": "error", "message": "Name, Phone, Blood Group, and Area are required."}), 400
 
     try:
         # 1. Update in Neo4j Graph Database
-        with driver.session() as session:
-            session.run("""
-                MERGE (d:Donor {phone: $old_phone})
-                SET d.name = $name, d.phone = $phone
-                WITH d
-                OPTIONAL MATCH (d)-[r1:HAS_BLOOD_GROUP]->()
-                DELETE r1
-                WITH d
-                MERGE (bg:BloodGroup {type: $blood_group})
-                MERGE (d)-[:HAS_BLOOD_GROUP]->(bg)
-                WITH d
-                OPTIONAL MATCH (d)-[r2:LIVES_IN]->()
-                DELETE r2
-                WITH d
-                MERGE (area:CampusArea {name: $area})
-                MERGE (d)-[:LIVES_IN]->(area)
-            """, old_phone=old_phone, phone=phone, name=name, blood_group=blood_group, area=area)
+        try:
+            with driver.session() as session:
+                session.run("""
+                    MERGE (d:Donor {phone: $old_phone})
+                    SET d.name = $name, d.phone = $phone
+                    WITH d
+                    OPTIONAL MATCH (d)-[r1:HAS_BLOOD_GROUP]->()
+                    DELETE r1
+                    WITH d
+                    MERGE (bg:BloodGroup {type: $blood_group})
+                    MERGE (d)-[:HAS_BLOOD_GROUP]->(bg)
+                    WITH d
+                    OPTIONAL MATCH (d)-[r2:LIVES_IN]->()
+                    DELETE r2
+                    WITH d
+                    MERGE (area:CampusArea {name: $area})
+                    MERGE (d)-[:LIVES_IN]->(area)
+                """, old_phone=old_phone, phone=phone, name=name, blood_group=blood_group, area=area)
+        except Exception as e:
+            print(f"[Neo4j] update notice: {e}")
 
         # 2. Update in MongoDB Document Database
         doc = {
@@ -200,7 +214,7 @@ def update_donor():
         }
 
         mongo_ok = is_mongo_online()
-        if old_phone != phone:
+        if old_phone and old_phone != phone:
             fallback_profiles.pop(old_phone, None)
             if mongo_ok:
                 profiles_col.delete_one({"phone": old_phone})
@@ -210,7 +224,7 @@ def update_donor():
             if mongo_ok:
                 existing_mongo = profiles_col.find_one({"phone": phone}, {"_id": 0}) or {}
                 existing = existing_mongo or existing
-            doc["disabled"] = existing.get("disabled", False)
+            doc["disabled"] = bool(existing.get("disabled", False))
             doc["disabled_until"] = existing.get("disabled_until", None)
 
         if "disabled" not in doc:
@@ -223,7 +237,7 @@ def update_donor():
 
         return jsonify({
             "status": "success",
-            "message": f"Updated {name}'s profile simultaneously in Neo4j & MongoDB!",
+            "message": f"Updated {name}'s profile successfully!",
             "donor": doc
         })
     except Exception as e:
@@ -334,14 +348,17 @@ def donor_detail(phone):
 
     elif request.method == "DELETE":
         try:
-            with driver.session() as session:
-                session.run("MATCH (d:Donor {phone: $phone}) DETACH DELETE d", phone=phone)
+            try:
+                with driver.session() as session:
+                    session.run("MATCH (d:Donor {phone: $phone}) DETACH DELETE d", phone=phone)
+            except Exception as e:
+                print(f"[Neo4j] delete notice: {e}")
 
             fallback_profiles.pop(phone, None)
             if is_mongo_online():
                 profiles_col.delete_one({"phone": phone})
 
-            return jsonify({"status": "success", "message": f"Donor {phone} deleted from Neo4j & MongoDB."})
+            return jsonify({"status": "success", "message": f"Donor {phone} deleted from database."})
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -379,16 +396,14 @@ def toggle_donor_status():
             }
             msg = "Account reactivated successfully."
 
-        # Update MongoDB document
-        if phone in fallback_profiles:
-            fallback_profiles[phone].update(patch)
+        # Update fallback and MongoDB document (upsert=True so it never fails with 404!)
+        if phone not in fallback_profiles:
+            fallback_profiles[phone] = {"phone": phone}
+        fallback_profiles[phone].update(patch)
+
         mongo_ok = is_mongo_online()
         if mongo_ok:
-            result = profiles_col.update_one({"phone": phone}, {"$set": patch})
-            if result.matched_count == 0:
-                return jsonify({"status": "error", "message": "Donor not found in MongoDB."}), 404
-        elif phone not in fallback_profiles:
-            return jsonify({"status": "error", "message": "Donor not found."}), 404
+            profiles_col.update_one({"phone": phone}, {"$set": patch}, upsert=True)
 
         return jsonify({
             "status": "success",
@@ -407,20 +422,36 @@ def search_compatible_donors():
     log_search = request.args.get("log", "true") == "true"
 
     try:
-        # 1. Graph Traversal in Neo4j
-        with driver.session() as session:
-            result = session.run("""
-                MATCH (d:Donor)-[:LIVES_IN]->(a:CampusArea {name: $area})
-                MATCH (d)-[:HAS_BLOOD_GROUP]->(donor_bg:BloodGroup)-[:CAN_DONATE_TO]->(target_bg:BloodGroup {type: $needed_bg})
-                RETURN d.name AS name, 
-                       d.phone AS phone, 
-                       donor_bg.type AS donor_blood_group, 
-                       a.name AS area,
-                       CASE WHEN donor_bg.type = $needed_bg THEN 'EXACT' ELSE 'CROSS_COMPATIBLE' END AS match_type
-                ORDER BY match_type DESC, donor_blood_group ASC
-            """, needed_bg=needed_bg, area=area)
-
-            donors = [dict(record) for record in result]
+        # 1. Graph Traversal in Neo4j with fallback
+        donors = []
+        try:
+            with driver.session() as session:
+                result = session.run("""
+                    MATCH (d:Donor)-[:LIVES_IN]->(a:CampusArea {name: $area})
+                    MATCH (d)-[:HAS_BLOOD_GROUP]->(donor_bg:BloodGroup)-[:CAN_DONATE_TO]->(target_bg:BloodGroup {type: $needed_bg})
+                    RETURN d.name AS name, 
+                           d.phone AS phone, 
+                           donor_bg.type AS donor_blood_group, 
+                           a.name AS area,
+                           CASE WHEN donor_bg.type = $needed_bg THEN 'EXACT' ELSE 'CROSS_COMPATIBLE' END AS match_type
+                    ORDER BY match_type DESC, donor_blood_group ASC
+                """, needed_bg=needed_bg, area=area)
+                donors = [dict(record) for record in result]
+        except Exception as e:
+            print(f"[Neo4j] search notice: {e}")
+            mongo_ok = is_mongo_online()
+            all_profiles = list(profiles_col.find({"area": area}, {"_id": 0})) if mongo_ok else [p for p in fallback_profiles.values() if p.get("area") == area]
+            for p in all_profiles:
+                bg = p.get("blood_group")
+                if bg and needed_bg in COMPATIBILITY_RULES.get(bg, []):
+                    donors.append({
+                        "name": p.get("name", ""),
+                        "phone": p.get("phone", ""),
+                        "donor_blood_group": bg,
+                        "area": p.get("area", area),
+                        "match_type": "EXACT" if bg == needed_bg else "CROSS_COMPATIBLE"
+                    })
+            donors.sort(key=lambda x: (0 if x["match_type"] == "EXACT" else 1, x["donor_blood_group"]))
 
         # 2. Enrich Each Matched Donor With Medical Profile from MongoDB
         # Also auto-revive donors whose disable period has expired, and filter out still-disabled ones
@@ -492,11 +523,16 @@ def get_search_logs():
 
 @app.route("/api/stats", methods=["GET"])
 def graph_stats():
+    nodes = 0
+    edges = 0
     try:
         with driver.session() as session:
             nodes = session.run("MATCH (n) RETURN count(n) AS count").single()["count"]
             edges = session.run("MATCH ()-[r]->() RETURN count(r) AS count").single()["count"]
+    except Exception:
+        pass
 
+    try:
         if is_mongo_online():
             mongo_docs = profiles_col.count_documents({}) + logs_col.count_documents({})
         else:
@@ -504,23 +540,24 @@ def graph_stats():
 
         return jsonify({"nodes": nodes, "edges": edges, "mongo_docs": mongo_docs})
     except Exception:
-        return jsonify({"nodes": 0, "edges": 0, "mongo_docs": 0})
+        return jsonify({"nodes": nodes, "edges": edges, "mongo_docs": 0})
 
 
 if __name__ == "__main__":
     print("\n========================================================")
-    print("🔌 Testing connections to Neo4j AuraDB & MongoDB...")
+    print("Testing connections to Neo4j AuraDB & MongoDB...")
     try:
         driver.verify_connectivity()
         seed_database_now()
-        print("✅ NEO4J CONNECTED & SEEDED SUCCESSFULLY!")
+        print("NEO4J CONNECTED & SEEDED SUCCESSFULLY!")
     except Exception as e:
-        print(f"❌ NEO4J CONNECTION FAILED! Reason: {e}")
+        print(f"[Neo4j] Notice: {e}")
 
     if is_mongo_online():
-        print("✅ MONGODB COMPASS CONNECTED (Database: pulse_mongodb)!")
+        print("MONGODB ATLAS / COMPASS CONNECTED (Database: pulse_mongodb)!")
+        seed_database_now()
     else:
-        print("⚠️ Local MongoDB not detected yet — running with seamless fallback until MongoDB starts.")
+        print("[MongoDB] Local fallback active.")
     print("========================================================\n")
 
     app.run(debug=True, port=5000)

@@ -670,10 +670,10 @@
                             `<option value="${index}">${d.name} (${d.blood_group || 'Unknown'}, ${cleanArea(d.area)}) — ${d.phone}${d.disabled ? ' [PAUSED]' : ''}</option>`
                         ).join('');
                 } else {
-                    select.innerHTML = '<option value="" selected disabled>-- Enter donor phone below to edit --</option>';
+                    select.innerHTML = '<option value="" selected disabled>-- Select a registered donor to edit --</option>';
                 }
             } catch (e) {
-                select.innerHTML = '<option value="" selected disabled>-- Enter donor phone below to edit --</option>';
+                select.innerHTML = '<option value="" selected disabled>-- Select a registered donor to edit --</option>';
             }
 
             selectorWrapper.classList.remove('hidden');
@@ -797,14 +797,19 @@
 
         async function submitDonorUpdate(e) {
             e.preventDefault();
-            const old_phone = document.getElementById('editOldPhone').value;
             const phone = document.getElementById('editPhone').value.trim();
+            const old_phone = document.getElementById('editOldPhone').value.trim() || phone;
             const name = document.getElementById('editName').value.trim();
             const medical_note = document.getElementById('editNote').value.trim();
             const blood_group = document.getElementById('editBg').value;
             const area = document.getElementById('editArea').value;
             const saveBtn = document.getElementById('saveEditBtn');
             const origSaveText = saveBtn.innerHTML;
+
+            if (!name || !phone) {
+                showToast("Please enter both name and phone number.", false);
+                return;
+            }
 
             saveBtn.disabled = true;
             saveBtn.innerHTML = `<span class="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Syncing...`;
