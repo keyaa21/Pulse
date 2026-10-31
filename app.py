@@ -1,29 +1,29 @@
+import os
+import certifi
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from neo4j import GraphDatabase
 from pymongo import MongoClient
-from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# Loads your secret credentials from the .env file locally
+load_dotenv()
 
 app = Flask(__name__)
 
 # 1. NEO4J AURADB CONNECTION (GRAPH DATABASE)
-
-NEO4J_URI = "neo4j+ssc://efa94ecb.databases.neo4j.io"
-NEO4J_USER = "efa94ecb"
-NEO4J_PASSWORD = "NuIUuBllss-ZgF8QFgyNhSBsMdZizmyOqZNNoKnGoY4"
+NEO4J_URI = os.environ.get("NEO4J_URI")
+NEO4J_USER = os.environ.get("NEO4J_USER")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
-# 2. MONGODB CONNECTION (DOCUMENT DATABASE)
-
-MONGO_URI = "mongodb://localhost:27017/"
-mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
+# 2. MONGODB ATLAS CONNECTION (DOCUMENT DATABASE)
+MONGO_URI = os.environ.get("MONGO_URI")
+mongo_client = MongoClient(MONGO_URI, tlsCAFile=certifi.where(), serverSelectionTimeoutMS=5000)
 mongo_db = mongo_client["pulse_mongodb"]
-profiles_col = mongo_db["donor_profiles"]  # Stores Donor Medical Screening JSONs
-logs_col = mongo_db["search_logs"]         # Stores Emergency Search Audit Logs
-
-# Fallback in-memory lists just in case MongoDB service isn't started yet
-fallback_profiles = {}
-fallback_logs = []
+profiles_col = mongo_db["donor_profiles"]
+logs_col = mongo_db["search_logs"]
 
 def is_mongo_online():
     try:
@@ -233,6 +233,10 @@ def update_donor():
 @app.route("/api/donors", methods=["GET"])
 def get_all_donors():
     """Returns all donors enriched with Neo4j graph relationships and MongoDB screening profiles."""
+    donors = []
+    known_phones = set()
+
+    # 1. Try Neo4j first
     try:
         with driver.session() as session:
             result = session.run("""
@@ -243,7 +247,14 @@ def get_all_donors():
                 ORDER BY d.name ASC
             """)
             donors = [dict(record) for record in result]
+            for d in donors:
+                if d.get("phone"):
+                    known_phones.add(d["phone"])
+    except Exception as e:
+        print(f"[Neo4j] get_all_donors notice: {e}")
 
+    # 2. Enrich from MongoDB profiles and fall back seamlessly
+    try:
         mongo_ok = is_mongo_online()
         for d in donors:
             profile = None
@@ -252,9 +263,25 @@ def get_all_donors():
             if not profile:
                 profile = fallback_profiles.get(d["phone"])
             d["medical_note"] = profile.get("medical_note") if profile else "Hb > 13.0 g/dL • Weight > 50kg • Eligible"
-            d["disabled"] = profile.get("disabled", False) if profile else False
+            d["disabled"] = bool(profile.get("disabled", False)) if profile else False
             d["disabled_until"] = profile.get("disabled_until") if profile else None
 
+        # 3. Always include any donors present in MongoDB (resilient to Neo4j connection drops)
+        mongo_profiles = list(profiles_col.find({}, {"_id": 0})) if mongo_ok else list(fallback_profiles.values())
+        for p in mongo_profiles:
+            if p.get("phone") and p["phone"] not in known_phones:
+                donors.append({
+                    "name": p.get("name", ""),
+                    "phone": p.get("phone", ""),
+                    "blood_group": p.get("blood_group", ""),
+                    "area": p.get("area", ""),
+                    "medical_note": p.get("medical_note", "Hb > 13.0 g/dL • Weight > 50kg • Eligible"),
+                    "disabled": bool(p.get("disabled", False)),
+                    "disabled_until": p.get("disabled_until", None)
+                })
+                known_phones.add(p["phone"])
+
+        donors.sort(key=lambda x: (x.get("name") or "").lower())
         resp = jsonify({"status": "success", "donors": donors})
         resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         return resp
@@ -268,24 +295,40 @@ def donor_detail(phone):
     phone = phone.strip()
     if request.method == "GET":
         try:
-            with driver.session() as session:
-                record = session.run("""
-                    MATCH (d:Donor {phone: $phone})
-                    OPTIONAL MATCH (d)-[:HAS_BLOOD_GROUP]->(bg:BloodGroup)
-                    OPTIONAL MATCH (d)-[:LIVES_IN]->(a:CampusArea)
-                    RETURN d.name AS name, d.phone AS phone, bg.type AS blood_group, a.name AS area
-                """, phone=phone).single()
+            record = None
+            try:
+                with driver.session() as session:
+                    record = session.run("""
+                        MATCH (d:Donor {phone: $phone})
+                        OPTIONAL MATCH (d)-[:HAS_BLOOD_GROUP]->(bg:BloodGroup)
+                        OPTIONAL MATCH (d)-[:LIVES_IN]->(a:CampusArea)
+                        RETURN d.name AS name, d.phone AS phone, bg.type AS blood_group, a.name AS area
+                    """, phone=phone).single()
+            except Exception as e:
+                print(f"[Neo4j] donor_detail notice: {e}")
 
-            if not record:
-                profile = profiles_col.find_one({"phone": phone}, {"_id": 0}) if is_mongo_online() else fallback_profiles.get(phone)
-                if not profile:
-                    return jsonify({"status": "error", "message": "Donor not found"}), 404
-                return jsonify({"status": "success", "donor": profile})
-
-            d = dict(record)
             profile = profiles_col.find_one({"phone": phone}, {"_id": 0}) if is_mongo_online() else fallback_profiles.get(phone)
-            d["medical_note"] = profile.get("medical_note") if profile else "Verified • Standard Eligibility"
-            return jsonify({"status": "success", "donor": d})
+
+            if not record and not profile:
+                return jsonify({"status": "error", "message": "Donor not found"}), 404
+
+            d = dict(record) if record else {}
+            if profile:
+                if not d.get("name"): d["name"] = profile.get("name", "")
+                if not d.get("phone"): d["phone"] = profile.get("phone", phone)
+                if not d.get("blood_group"): d["blood_group"] = profile.get("blood_group", "")
+                if not d.get("area"): d["area"] = profile.get("area", "")
+                d["medical_note"] = profile.get("medical_note", "Verified • Standard Eligibility")
+                d["disabled"] = bool(profile.get("disabled", False))
+                d["disabled_until"] = profile.get("disabled_until", None)
+            else:
+                d["medical_note"] = "Verified • Standard Eligibility"
+                d["disabled"] = False
+                d["disabled_until"] = None
+
+            resp = jsonify({"status": "success", "donor": d})
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            return resp
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 

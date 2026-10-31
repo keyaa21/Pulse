@@ -296,7 +296,10 @@
                             <p class="text-[11px] mono text-zinc-400">Account Status</p>
                             <p id="statusToggleHint" class="text-[10px] text-zinc-600 mt-0.5">Active — appears in emergency searches</p>
                         </div>
-                        <span id="statusBadge" class="text-[10px] mono px-2 py-0.5 rounded border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">Active</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="btnSwitchStatus" onclick="manualToggleStatusView()" class="text-[10px] mono text-zinc-500 hover:text-zinc-300 underline cursor-pointer">Switch to Revive</button>
+                            <span id="statusBadge" class="text-[10px] mono px-2 py-0.5 rounded border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">Active</span>
+                        </div>
                     </div>
                     <div id="disableControls" class="flex items-center gap-2">
                         <label class="text-[11px] mono text-zinc-500 shrink-0">Pause for:</label>
@@ -565,21 +568,83 @@
             const hint = document.getElementById('statusToggleHint');
             const disableControls = document.getElementById('disableControls');
             const reviveControls = document.getElementById('reviveControls');
+            const btnSwitch = document.getElementById('btnSwitchStatus');
 
             if (badge) {
                 badge.textContent = 'Active';
                 badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
             }
             if (hint) {
-                hint.textContent = 'Select a registered donor or type name (4+ letters) to edit';
+                hint.textContent = 'Active \u2014 appears in emergency searches';
             }
             if (disableControls) disableControls.classList.remove('hidden');
             if (reviveControls) reviveControls.classList.add('hidden');
+            if (btnSwitch) btnSwitch.textContent = 'Switch to Revive';
 
             const editSuggestions = document.getElementById('editNameSuggestions');
             if (editSuggestions) {
                 editSuggestions.classList.add('hidden');
                 editSuggestions.innerHTML = '';
+            }
+        }
+
+        function manualToggleStatusView() {
+            const disableControls = document.getElementById('disableControls');
+            const reviveControls = document.getElementById('reviveControls');
+            const badge = document.getElementById('statusBadge');
+            const hint = document.getElementById('statusToggleHint');
+            const btnSwitch = document.getElementById('btnSwitchStatus');
+
+            const currentlyRevive = !reviveControls.classList.contains('hidden');
+            if (currentlyRevive) {
+                reviveControls.classList.add('hidden');
+                disableControls.classList.remove('hidden');
+                badge.textContent = 'Active';
+                badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                hint.textContent = 'Active \u2014 select duration to pause account';
+                if (btnSwitch) btnSwitch.textContent = 'Switch to Revive';
+            } else {
+                disableControls.classList.add('hidden');
+                reviveControls.classList.remove('hidden');
+                badge.textContent = 'Paused';
+                badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-amber-400 bg-amber-500/10 border-amber-500/20';
+                hint.textContent = 'Paused \u2014 click Revive Account below to reactivate';
+                if (btnSwitch) btnSwitch.textContent = 'Switch to Pause';
+            }
+        }
+
+        async function checkDonorStatusLive() {
+            const phoneInput = document.getElementById('editPhone');
+            const nameInput = document.getElementById('editName');
+            const phone = phoneInput ? phoneInput.value.trim() : '';
+            const name = nameInput ? nameInput.value.trim().toLowerCase() : '';
+
+            let donor = null;
+
+            if (phone.length >= 8 && cachedDonorsList) {
+                donor = cachedDonorsList.find(d => d.phone === phone);
+            }
+
+            if (!donor && name && cachedDonorsList) {
+                donor = cachedDonorsList.find(d => d.name && d.name.toLowerCase() === name);
+            }
+
+            if (!donor && phone.length >= 10) {
+                try {
+                    const res = await fetch(`/api/donor/${encodeURIComponent(phone)}?_t=${Date.now()}`);
+                    const data = await res.json();
+                    if (data.status === 'success' && data.donor) {
+                        donor = data.donor;
+                        if (!cachedDonorsList) cachedDonorsList = [];
+                        const existingIdx = cachedDonorsList.findIndex(cd => cd.phone === donor.phone);
+                        if (existingIdx !== -1) cachedDonorsList[existingIdx] = donor;
+                        else cachedDonorsList.push(donor);
+                    }
+                } catch(e) {}
+            }
+
+            if (donor) {
+                populateEditModal(donor);
             }
         }
 
@@ -604,14 +669,14 @@
                         cachedDonorsList.map((d, index) => 
                             `<option value="${index}">${d.name} (${d.blood_group || 'Unknown'}, ${cleanArea(d.area)}) — ${d.phone}${d.disabled ? ' [PAUSED]' : ''}</option>`
                         ).join('');
-                    selectorWrapper.classList.remove('hidden');
                 } else {
-                    selectorWrapper.classList.add('hidden');
+                    select.innerHTML = '<option value="" selected disabled>-- Enter donor phone below to edit --</option>';
                 }
             } catch (e) {
-                selectorWrapper.classList.add('hidden');
+                select.innerHTML = '<option value="" selected disabled>-- Enter donor phone below to edit --</option>';
             }
 
+            selectorWrapper.classList.remove('hidden');
             modal.classList.remove('hidden');
         }
 
@@ -625,6 +690,7 @@
         }
 
         function populateEditModal(d) {
+            if (!d) return;
             document.getElementById('editOldPhone').value = d.phone || '';
             document.getElementById('editPhone').value = d.phone || '';
             document.getElementById('editName').value = d.name || '';
@@ -646,6 +712,7 @@
             const hint = document.getElementById('statusToggleHint');
             const disableControls = document.getElementById('disableControls');
             const reviveControls = document.getElementById('reviveControls');
+            const btnSwitch = document.getElementById('btnSwitchStatus');
 
             if (isDisabled) {
                 badge.textContent = 'Paused';
@@ -660,12 +727,14 @@
                 hint.textContent = hintText;
                 disableControls.classList.add('hidden');
                 reviveControls.classList.remove('hidden');
+                if (btnSwitch) btnSwitch.textContent = 'Switch to Pause';
             } else {
                 badge.textContent = 'Active';
                 badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
                 hint.textContent = 'Active \u2014 appears in emergency searches';
                 disableControls.classList.remove('hidden');
                 reviveControls.classList.add('hidden');
+                if (btnSwitch) btnSwitch.textContent = 'Switch to Revive';
             }
         }
 
@@ -675,8 +744,11 @@
         }
 
         async function toggleDonorStatus(action) {
-            const phone = document.getElementById('editOldPhone').value || document.getElementById('editPhone').value;
-            if (!phone) return;
+            const phone = (document.getElementById('editPhone').value || document.getElementById('editOldPhone').value || '').trim();
+            if (!phone) {
+                showToast("Please enter donor phone number first.", false);
+                return;
+            }
             const months = parseInt(document.getElementById('disableMonths').value, 10) || 1;
 
             try {
@@ -699,30 +771,18 @@
                         }
                     }
 
-                    // Update the status section in-place
-                    const badge = document.getElementById('statusBadge');
-                    const hint = document.getElementById('statusToggleHint');
-                    const disableControls = document.getElementById('disableControls');
-                    const reviveControls = document.getElementById('reviveControls');
+                    // Re-render modal status
+                    populateEditModal({
+                        phone: phone,
+                        name: document.getElementById('editName').value,
+                        medical_note: document.getElementById('editNote').value,
+                        blood_group: document.getElementById('editBg').value,
+                        area: document.getElementById('editArea').value,
+                        disabled: data.disabled,
+                        disabled_until: data.disabled_until
+                    });
 
-                    if (data.disabled) {
-                        badge.textContent = 'Paused';
-                        badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-amber-400 bg-amber-500/10 border-amber-500/20';
-                        let hintText = 'Paused \u2014 hidden from emergency searches';
-                        if (data.disabled_until) {
-                            const exp = new Date(data.disabled_until);
-                            hintText += ` \u00b7 Revives ${exp.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-                        }
-                        hint.textContent = hintText;
-                        disableControls.classList.add('hidden');
-                        reviveControls.classList.remove('hidden');
-                    } else {
-                        badge.textContent = 'Active';
-                        badge.className = 'text-[10px] mono px-2 py-0.5 rounded border text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
-                        hint.textContent = 'Active \u2014 appears in emergency searches';
-                        disableControls.classList.remove('hidden');
-                        reviveControls.classList.add('hidden');
-                    }
+                    await fetchDonorsList();
 
                     if (hasSearchedOnce) {
                         await searchDonors(false);
@@ -915,6 +975,23 @@
             await fetchDonorsList();
             setupNameAutocomplete('editName', 'editNameSuggestions');
             setupNameAutocomplete('regName', 'regNameSuggestions');
+
+            const editPhoneInput = document.getElementById('editPhone');
+            if (editPhoneInput) {
+                editPhoneInput.addEventListener('input', () => {
+                    if (editPhoneInput.value.trim().length >= 10) {
+                        checkDonorStatusLive();
+                    }
+                });
+                editPhoneInput.addEventListener('change', checkDonorStatusLive);
+                editPhoneInput.addEventListener('blur', checkDonorStatusLive);
+            }
+
+            const editNameInput = document.getElementById('editName');
+            if (editNameInput) {
+                editNameInput.addEventListener('change', checkDonorStatusLive);
+                editNameInput.addEventListener('blur', checkDonorStatusLive);
+            }
         };
     </script>
 </body>
